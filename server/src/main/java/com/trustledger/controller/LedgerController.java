@@ -1,0 +1,88 @@
+package com.trustledger.controller;
+
+import com.trustledger.dto.ApiResponseDto;
+import com.trustledger.dto.DebitRequestDto;
+import com.trustledger.dto.PurchaseRequestDto;
+import com.trustledger.dto.TransactionHistoryDto;
+import com.trustledger.model.CropPurchase;
+import com.trustledger.model.Farmer;
+import com.trustledger.model.LedgerDebit;
+import com.trustledger.service.LedgerService;
+import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
+import java.util.UUID;
+
+@CrossOrigin("*")
+@RestController
+@RequestMapping("/api")
+@RequiredArgsConstructor
+public class LedgerController {
+
+    private final LedgerService ledgerService;
+
+    @GetMapping("/farmers")
+    public ResponseEntity<ApiResponseDto<List<Farmer>>> getAllFarmers() {
+        ApiResponseDto<List<Farmer>> response = ApiResponseDto.success(
+                202,
+                "Farmers retrieved successfully",
+                ledgerService.getAllFarmers()
+        );
+        return new ResponseEntity<>(response, HttpStatus.ACCEPTED);
+    }
+
+    @GetMapping("/farmers/{id}")
+    public ResponseEntity<ApiResponseDto<Farmer>> getFarmerById(@PathVariable("id") UUID id) {
+        ApiResponseDto<Farmer> response = ApiResponseDto.success(
+                202,
+                "Farmer details retrieved successfully",
+                ledgerService.getFarmerById(id)
+        );
+        return new ResponseEntity<>(response, HttpStatus.ACCEPTED);
+    }
+
+    @PostMapping("/farmers")
+    public ResponseEntity<ApiResponseDto<Farmer>> createFarmer(@RequestBody Farmer farmer) {
+        ApiResponseDto<Farmer> response = ApiResponseDto.success(
+                202,
+                "Farmer registered successfully",
+                ledgerService.createFarmer(farmer)
+        );
+        return new ResponseEntity<>(response, HttpStatus.ACCEPTED);
+    }
+
+    @PostMapping("/transactions/purchase")
+    public ResponseEntity<ApiResponseDto<CropPurchase>> logPurchase(@RequestBody PurchaseRequestDto purchaseRequest) {
+        ApiResponseDto<CropPurchase> response = ApiResponseDto.success(
+                202,
+                "Crop purchase logged successfully",
+                ledgerService.logPurchase(purchaseRequest)
+        );
+        return new ResponseEntity<>(response, HttpStatus.ACCEPTED);
+    }
+
+    @PostMapping("/transactions/debit")
+    public ResponseEntity<ApiResponseDto<LedgerDebit>> logDebit(@RequestBody DebitRequestDto debitRequest) {
+        ApiResponseDto<LedgerDebit> response = ApiResponseDto.success(
+                202,
+                "Deduction/debit logged successfully",
+                ledgerService.logDebit(debitRequest)
+        );
+        return new ResponseEntity<>(response, HttpStatus.ACCEPTED);
+    }
+
+    @GetMapping("/farmers/{id}/history")
+    public ResponseEntity<ApiResponseDto<TransactionHistoryDto>> getFarmerTransactionHistory(
+            @PathVariable("id") UUID id,
+            @RequestParam(value = "query", required = false) String query) {
+        ApiResponseDto<TransactionHistoryDto> response = ApiResponseDto.success(
+                202,
+                "Transaction history retrieved successfully",
+                ledgerService.getFarmerTransactionHistory(id, query)
+        );
+        return new ResponseEntity<>(response, HttpStatus.ACCEPTED);
+    }
+}
