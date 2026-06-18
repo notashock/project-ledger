@@ -191,8 +191,29 @@ public class InventoryService {
             String cropKey = cp.getCropType().getValue().toUpperCase();
             CropStockDetailDto stockDetail = cropStocks.get(cropKey);
             stockDetail.setTotalWeight(stockDetail.getTotalWeight().add(cp.getWeight() != null ? cp.getWeight() : BigDecimal.ZERO));
-            stockDetail.setApproxBags(stockDetail.getApproxBags().add(cp.getNoOfBags() != null ? cp.getNoOfBags() : BigDecimal.ZERO));
+            
+            // Calculate bags using the bagWeight stored in the purchase itself
+            BigDecimal bagWeight = cp.getBagWeight();
+            if (bagWeight == null || bagWeight.compareTo(BigDecimal.ZERO) <= 0) {
+                bagWeight = BigDecimal.valueOf(101.0);
+            }
+            BigDecimal bags = cp.getWeight() != null ? cp.getWeight().divide(bagWeight, 4, RoundingMode.HALF_UP) : BigDecimal.ZERO;
+            BigDecimal remainder = bags.remainder(BigDecimal.ONE);
+            if (remainder.compareTo(BigDecimal.valueOf(0.90)) > 0) {
+                bags = bags.setScale(0, RoundingMode.CEILING);
+            } else {
+                bags = bags.setScale(2, RoundingMode.HALF_UP);
+            }
+            
+            stockDetail.setApproxBags(stockDetail.getApproxBags().add(bags));
             stockDetail.setInvestedValue(stockDetail.getInvestedValue().add(cp.getTotalValue() != null ? cp.getTotalValue() : BigDecimal.ZERO));
+
+            // Estimate value purely based on the daily_rates (latest buy rate)
+            CropRateDto rateDto = latestRates.get(cropKey.toLowerCase());
+            if (rateDto != null && rateDto.getBuyRate() != null) {
+                BigDecimal estimatedValue = bags.multiply(rateDto.getBuyRate()).setScale(2, RoundingMode.HALF_UP);
+                stockDetail.setEstimatedValue(stockDetail.getEstimatedValue().add(estimatedValue));
+            }
         }
 
         // Process Bulk Purchases
@@ -211,32 +232,34 @@ public class InventoryService {
             String cropKey = bp.getCropType().getValue().toUpperCase();
             CropStockDetailDto stockDetail = cropStocks.get(cropKey);
             stockDetail.setTotalWeight(stockDetail.getTotalWeight().add(bp.getWeight() != null ? bp.getWeight() : BigDecimal.ZERO));
-            stockDetail.setApproxBags(stockDetail.getApproxBags().add(bp.getNoOfBags() != null ? bp.getNoOfBags() : BigDecimal.ZERO));
+            
+            // Calculate bags using the bagWeight stored in the purchase itself
+            BigDecimal bagWeight = bp.getBagWeight();
+            if (bagWeight == null || bagWeight.compareTo(BigDecimal.ZERO) <= 0) {
+                bagWeight = BigDecimal.valueOf(101.0);
+            }
+            BigDecimal bags = bp.getWeight() != null ? bp.getWeight().divide(bagWeight, 4, RoundingMode.HALF_UP) : BigDecimal.ZERO;
+            BigDecimal remainder = bags.remainder(BigDecimal.ONE);
+            if (remainder.compareTo(BigDecimal.valueOf(0.90)) > 0) {
+                bags = bags.setScale(0, RoundingMode.CEILING);
+            } else {
+                bags = bags.setScale(2, RoundingMode.HALF_UP);
+            }
+            
+            stockDetail.setApproxBags(stockDetail.getApproxBags().add(bags));
             stockDetail.setInvestedValue(stockDetail.getInvestedValue().add(bp.getAmountSpent() != null ? bp.getAmountSpent() : BigDecimal.ZERO));
+
+            // Estimate value purely based on the daily_rates (latest buy rate)
+            CropRateDto rateDto = latestRates.get(cropKey.toLowerCase());
+            if (rateDto != null && rateDto.getBuyRate() != null) {
+                BigDecimal estimatedValue = bags.multiply(rateDto.getBuyRate()).setScale(2, RoundingMode.HALF_UP);
+                stockDetail.setEstimatedValue(stockDetail.getEstimatedValue().add(estimatedValue));
+            }
         }
 
-        // Calculate Estimated Cost
+        // Sum up total estimated and invested values
         for (Map.Entry<String, CropStockDetailDto> entry : cropStocks.entrySet()) {
             CropStockDetailDto stockDetail = entry.getValue();
-            CropRateDto rateDto = latestRates.get(entry.getKey().toLowerCase());
-            
-            if (rateDto != null && rateDto.getBuyRate() != null && rateDto.getBagWeight() != null && rateDto.getBagWeight().compareTo(BigDecimal.ZERO) > 0) {
-                // Calculation rule: Total Bags * Price per bag (where Price is buyRate, and buyRate is per bag if bagWeight is considered)
-                // Wait, daily_rates stores buyRate which is price of 1 bag. The no. of bags is calculated based on bag weight.
-                // The formula given by the user: "multiply the no.of bags with the price of this date".
-                // And no.of bags was calculated by weight of each bag.
-                // If the stock details already aggregated approxBags (which was computed during purchase), we just multiply it by buyRate.
-                // BUT what if we want to calculate no.of bags dynamically from totalWeight? The user said "first you need to calculate the no.of bags with the same formula as the weight of each bag is stored in the table itself and multiply the no.of bags with the price of this date"
-                
-                // Let's recalculate noOfBags based on totalWeight / daily_rate.bagWeight to be strictly "purely based on daily_rates".
-                // user: "first you need to calculate the no.of bags with the same formula as the weight of each bag is stored in the table itself and multiply the no.of bags with the price of this date"
-                BigDecimal approxBags = stockDetail.getTotalWeight().divide(rateDto.getBagWeight(), 2, RoundingMode.HALF_UP);
-                
-                BigDecimal estimatedValue = approxBags.multiply(rateDto.getBuyRate()).setScale(2, RoundingMode.HALF_UP);
-                stockDetail.setEstimatedValue(estimatedValue);
-                stockDetail.setApproxBags(approxBags); // Update approxBags using the current daily rate bag weight to be precise.
-            }
-
             totalEstimatedValue = totalEstimatedValue.add(stockDetail.getEstimatedValue());
             totalInvestedValue = totalInvestedValue.add(stockDetail.getInvestedValue());
         }

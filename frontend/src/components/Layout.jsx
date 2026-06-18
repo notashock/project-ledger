@@ -88,7 +88,7 @@ export default function Layout({ children }) {
       {/* Bottom Navigation (Mobile Only) */}
       <nav className="md:hidden fixed bottom-0 left-0 w-full bg-surface border-t border-surface-variant z-50 px-container-margin pb-safe">
         <ul className="flex justify-between items-center h-16">
-          {sidebarNavItems.slice(0, 4).map((item, idx) => (
+          {sidebarNavItems.map((item, idx) => (
             <li key={idx}>
               <Link to={item.path} className={`flex flex-col items-center justify-center h-full ${isActive(item.path) ? 'text-primary' : 'text-on-surface-variant hover:text-primary'}`}>
                 <span className="material-symbols-outlined" style={isActive(item.path) ? { fontVariationSettings: "'FILL' 1" } : {}}>{item.icon}</span>
