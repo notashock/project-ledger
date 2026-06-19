@@ -16,4 +16,19 @@ public class TransactionItemDto {
     private String description;
     private BigDecimal amount;
     private String sign;
+
+    // Additional fields for editing purchases
+    private String cropType;
+    private BigDecimal weight;
+    private BigDecimal rateApplied;
+    private BigDecimal bagWeight;
+    private BigDecimal noOfBags;
+    private BigDecimal machineCost;
+    private UUID godownId;
+    private String remarks;
+
+    // Additional fields for editing debits
+    private String category;
+    private String rawDescription;
+    private String otherCategorySpecify;
 }

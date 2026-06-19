@@ -85,4 +85,73 @@ public class LedgerController {
         );
         return new ResponseEntity<>(response, HttpStatus.ACCEPTED);
     }
+
+    @PutMapping("/farmers/{id}")
+    public ResponseEntity<ApiResponseDto<Farmer>> updateFarmer(
+            @PathVariable("id") UUID id,
+            @RequestBody Farmer farmer) {
+        ApiResponseDto<Farmer> response = ApiResponseDto.success(
+                202,
+                "Farmer details updated successfully",
+                ledgerService.updateFarmer(id, farmer)
+        );
+        return new ResponseEntity<>(response, HttpStatus.ACCEPTED);
+    }
+
+    @DeleteMapping("/farmers/{id}")
+    public ResponseEntity<ApiResponseDto<Void>> deleteFarmer(@PathVariable("id") UUID id) {
+        ledgerService.deleteFarmer(id);
+        ApiResponseDto<Void> response = ApiResponseDto.success(
+                202,
+                "Farmer deleted successfully",
+                null
+        );
+        return new ResponseEntity<>(response, HttpStatus.ACCEPTED);
+    }
+
+    @DeleteMapping("/transactions/purchase/{id}")
+    public ResponseEntity<ApiResponseDto<Void>> deleteCropPurchase(@PathVariable("id") UUID id) {
+        ledgerService.deleteCropPurchase(id);
+        ApiResponseDto<Void> response = ApiResponseDto.success(
+                202,
+                "Crop purchase deleted successfully",
+                null
+        );
+        return new ResponseEntity<>(response, HttpStatus.ACCEPTED);
+    }
+
+    @DeleteMapping("/transactions/debit/{id}")
+    public ResponseEntity<ApiResponseDto<Void>> deleteLedgerDebit(@PathVariable("id") UUID id) {
+        ledgerService.deleteLedgerDebit(id);
+        ApiResponseDto<Void> response = ApiResponseDto.success(
+                202,
+                "Ledger debit deleted successfully",
+                null
+        );
+        return new ResponseEntity<>(response, HttpStatus.ACCEPTED);
+    }
+
+    @PutMapping("/transactions/purchase/{id}")
+    public ResponseEntity<ApiResponseDto<CropPurchase>> updateCropPurchase(
+            @PathVariable("id") UUID id,
+            @RequestBody PurchaseRequestDto purchaseRequest) {
+        ApiResponseDto<CropPurchase> response = ApiResponseDto.success(
+                202,
+                "Crop purchase updated successfully",
+                ledgerService.updateCropPurchase(id, purchaseRequest)
+        );
+        return new ResponseEntity<>(response, HttpStatus.ACCEPTED);
+    }
+
+    @PutMapping("/transactions/debit/{id}")
+    public ResponseEntity<ApiResponseDto<LedgerDebit>> updateLedgerDebit(
+            @PathVariable("id") UUID id,
+            @RequestBody DebitRequestDto debitRequest) {
+        ApiResponseDto<LedgerDebit> response = ApiResponseDto.success(
+                202,
+                "Ledger debit updated successfully",
+                ledgerService.updateLedgerDebit(id, debitRequest)
+        );
+        return new ResponseEntity<>(response, HttpStatus.ACCEPTED);
+    }
 }

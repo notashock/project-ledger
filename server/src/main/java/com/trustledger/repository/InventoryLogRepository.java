@@ -23,4 +23,13 @@ public interface InventoryLogRepository extends JpaRepository<InventoryLog, UUID
            "FROM InventoryLog i JOIN i.godown g " +
            "GROUP BY g.id, g.name, i.cropType")
     List<InventorySummaryDto> getInventorySummary();
+
+    List<InventoryLog> findByGodownId(UUID godownId);
+
+    void deleteByReferenceId(UUID referenceId);
+
+    List<InventoryLog> findByReferenceId(UUID referenceId);
+
+    @Query("SELECT SUM(i.quantity) FROM InventoryLog i WHERE i.godown.id = :godownId")
+    java.math.BigDecimal sumQuantityByGodownId(@Param("godownId") UUID godownId);
 }

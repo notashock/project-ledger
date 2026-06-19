@@ -14,6 +14,9 @@ import com.trustledger.repository.InventoryLogRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import com.trustledger.exception.GodownNotFoundException;
+import com.trustledger.repository.FarmerRepository;
+import com.trustledger.model.Farmer;
 
 import java.time.LocalDate;
 import java.util.List;
@@ -36,6 +39,7 @@ public class InventoryService {
     private final InventoryLogRepository inventoryLogRepository;
     private final CropPurchaseRepository cropPurchaseRepository;
     private final MarketRateService marketRateService;
+    private final FarmerRepository farmerRepository;
 
     @Transactional
     public GodownDto addGodown(GodownDto request) {
@@ -81,7 +85,7 @@ public class InventoryService {
     @Transactional
     public BulkPurchaseDto logBulkPurchase(BulkPurchaseDto dto) {
         Godown godown = godownRepository.findById(dto.getGodownId())
-                .orElseThrow(() -> new IllegalArgumentException("Godown not found"));
+                .orElseThrow(() -> new GodownNotFoundException("Godown with ID " + dto.getGodownId() + " not found"));
 
         BulkPurchase purchase = new BulkPurchase();
         purchase.setSupplierName(dto.getSupplierName());
@@ -148,7 +152,7 @@ public class InventoryService {
     @Transactional(readOnly = true)
     public GodownDetailsDto getGodownDetails(UUID godownId) {
         Godown godown = godownRepository.findById(godownId)
-                .orElseThrow(() -> new IllegalArgumentException("Godown not found"));
+                .orElseThrow(() -> new GodownNotFoundException("Godown with ID " + godownId + " not found"));
 
         GodownDto godownDto = new GodownDto();
         godownDto.setId(godown.getId());
@@ -186,6 +190,12 @@ public class InventoryService {
             item.setWeight(cp.getWeight());
             item.setNoOfBags(cp.getNoOfBags());
             item.setAmountSpent(cp.getTotalValue());
+            item.setBagWeight(cp.getBagWeight());
+            item.setRateApplied(cp.getRateApplied());
+            item.setMachineCost(cp.getMachineCost());
+            item.setRemarks(cp.getRemarks());
+            item.setGodownId(cp.getGodown() != null ? cp.getGodown().getId() : null);
+            item.setFarmerId(cp.getFarmer() != null ? cp.getFarmer().getId() : null);
             purchases.add(item);
 
             String cropKey = cp.getCropType().getValue().toUpperCase();
@@ -227,6 +237,9 @@ public class InventoryService {
             item.setWeight(bp.getWeight());
             item.setNoOfBags(bp.getNoOfBags());
             item.setAmountSpent(bp.getAmountSpent());
+            item.setBagWeight(bp.getBagWeight());
+            item.setRatePerQuintal(bp.getRatePerQuintal());
+            item.setGodownId(bp.getGodown() != null ? bp.getGodown().getId() : null);
             purchases.add(item);
 
             String cropKey = bp.getCropType().getValue().toUpperCase();
@@ -274,5 +287,101 @@ public class InventoryService {
         details.setTotalInvestedValue(totalInvestedValue);
 
         return details;
+    }
+
+    @Transactional
+    public GodownDto updateGodown(UUID id, GodownDto updatedGodown) {
+        Godown existing = godownRepository.findById(id)
+                .orElseThrow(() -> new GodownNotFoundException("Godown with ID " + id + " not found"));
+        existing.setName(updatedGodown.getName());
+        existing.setLocation(updatedGodown.getLocation());
+        godownRepository.save(existing);
+        updatedGodown.setId(existing.getId());
+        return updatedGodown;
+    }
+
+    @Transactional
+    public void deleteGodown(UUID id) {
+        Godown godown = godownRepository.findById(id)
+                .orElseThrow(() -> new GodownNotFoundException("Godown with ID " + id + " not found"));
+
+        // Check if godown currently holds active inventory
+        BigDecimal sum = inventoryLogRepository.sumQuantityByGodownId(id);
+        if (sum != null && sum.compareTo(BigDecimal.ZERO) > 0) {
+            throw new IllegalStateException("Cannot delete Godown holding active inventory");
+        }
+
+        // Delete associated inventory logs
+        List<InventoryLog> logs = inventoryLogRepository.findByGodownId(id);
+        inventoryLogRepository.deleteAll(logs);
+
+        // Delete associated crop purchases (and update farmer balances)
+        List<CropPurchase> purchases = cropPurchaseRepository.findByGodownIdOrderByDateDesc(id);
+        for (CropPurchase purchase : purchases) {
+            Farmer farmer = purchase.getFarmer();
+            if (farmer != null) {
+                farmer.setNetBalance(farmer.getNetBalance().subtract(purchase.getTotalValue()));
+                farmerRepository.save(farmer);
+            }
+        }
+        cropPurchaseRepository.deleteAll(purchases);
+
+        // Delete associated bulk purchases
+        List<BulkPurchase> bulkPurchases = bulkPurchaseRepository.findByGodownIdOrderByDateDesc(id);
+        bulkPurchaseRepository.deleteAll(bulkPurchases);
+
+        // Delete the godown
+        godownRepository.delete(godown);
+    }
+
+    @Transactional
+    public BulkPurchaseDto updateBulkPurchase(UUID id, BulkPurchaseDto dto) {
+        BulkPurchase purchase = bulkPurchaseRepository.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("Bulk purchase with ID " + id + " not found"));
+
+        Godown godown = godownRepository.findById(dto.getGodownId())
+                .orElseThrow(() -> new GodownNotFoundException("Godown with ID " + dto.getGodownId() + " not found"));
+
+        purchase.setSupplierName(dto.getSupplierName());
+        purchase.setDate(dto.getDate() != null ? dto.getDate() : LocalDate.now());
+        purchase.setCropType(dto.getCropType());
+        purchase.setWeight(dto.getWeight());
+        purchase.setRatePerQuintal(dto.getRatePerQuintal());
+
+        // Calculate amountSpent = (weight / 100) * ratePerQuintal
+        if (dto.getWeight() != null && dto.getRatePerQuintal() != null) {
+            BigDecimal amountSpent = dto.getWeight()
+                    .divide(new BigDecimal("100"), 4, RoundingMode.HALF_UP)
+                    .multiply(dto.getRatePerQuintal())
+                    .setScale(2, RoundingMode.HALF_UP);
+            purchase.setAmountSpent(amountSpent);
+        } else {
+            purchase.setAmountSpent(BigDecimal.ZERO);
+        }
+
+        purchase.setBagWeight(dto.getBagWeight());
+        purchase.setNoOfBags(dto.getNoOfBags());
+        purchase.setGodown(godown);
+
+        BulkPurchase saved = bulkPurchaseRepository.save(purchase);
+
+        // Update corresponding InventoryLog entry
+        List<InventoryLog> logs = inventoryLogRepository.findByReferenceId(saved.getId());
+        for (InventoryLog log : logs) {
+            log.setGodown(godown);
+            log.setDate(saved.getDate());
+            log.setCropType(saved.getCropType());
+            if (log.getQuantity().compareTo(BigDecimal.ZERO) >= 0) {
+                log.setQuantity(saved.getWeight());
+            } else {
+                log.setQuantity(saved.getWeight().negate());
+            }
+            log.setNotes("Bulk purchase from " + saved.getSupplierName());
+            inventoryLogRepository.save(log);
+        }
+
+        dto.setId(saved.getId());
+        dto.setAmountSpent(saved.getAmountSpent());
+        return dto;
     }
 }

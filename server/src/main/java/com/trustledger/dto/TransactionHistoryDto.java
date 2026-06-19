@@ -10,6 +10,8 @@ import java.util.List;
 @Builder
 public class TransactionHistoryDto {
     private String farmerName;
+    private String village;
+    private String phone;
     private BigDecimal netBalance;
     private List<TransactionItemDto> transactions;
 }

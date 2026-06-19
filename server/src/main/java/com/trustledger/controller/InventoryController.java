@@ -81,4 +81,39 @@ public class InventoryController {
         );
         return new ResponseEntity<>(response, HttpStatus.ACCEPTED);
     }
+
+    @PutMapping("/godowns/{id}")
+    public ResponseEntity<ApiResponseDto<GodownDto>> updateGodown(
+            @PathVariable("id") java.util.UUID id,
+            @RequestBody GodownDto godownDto) {
+        ApiResponseDto<GodownDto> response = ApiResponseDto.success(
+                202,
+                "Godown updated successfully",
+                inventoryService.updateGodown(id, godownDto)
+        );
+        return new ResponseEntity<>(response, HttpStatus.ACCEPTED);
+    }
+
+    @DeleteMapping("/godowns/{id}")
+    public ResponseEntity<ApiResponseDto<Void>> deleteGodown(@PathVariable("id") java.util.UUID id) {
+        inventoryService.deleteGodown(id);
+        ApiResponseDto<Void> response = ApiResponseDto.success(
+                202,
+                "Godown deleted successfully",
+                null
+        );
+        return new ResponseEntity<>(response, HttpStatus.ACCEPTED);
+    }
+
+    @PutMapping("/bulk-purchases/{id}")
+    public ResponseEntity<ApiResponseDto<BulkPurchaseDto>> updateBulkPurchase(
+            @PathVariable("id") java.util.UUID id,
+            @RequestBody BulkPurchaseDto dto) {
+        ApiResponseDto<BulkPurchaseDto> response = ApiResponseDto.success(
+                202,
+                "Bulk purchase updated successfully",
+                inventoryService.updateBulkPurchase(id, dto)
+        );
+        return new ResponseEntity<>(response, HttpStatus.ACCEPTED);
+    }
 }

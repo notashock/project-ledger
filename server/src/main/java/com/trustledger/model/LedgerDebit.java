@@ -33,4 +33,6 @@ public class LedgerDebit {
     private BigDecimal costAmount;
 
     private String description;
+
+    private String otherCategorySpecify;
 }

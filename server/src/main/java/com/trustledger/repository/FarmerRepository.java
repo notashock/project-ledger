@@ -8,4 +8,5 @@ import java.util.UUID;
 
 @Repository
 public interface FarmerRepository extends JpaRepository<Farmer, UUID> {
+    java.util.Optional<Farmer> findByNameAndVillage(String name, String village);
 }

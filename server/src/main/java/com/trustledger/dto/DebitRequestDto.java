@@ -13,4 +13,5 @@ public class DebitRequestDto {
     private DebitCategory category;
     private BigDecimal costAmount;
     private String description;
+    private String otherCategorySpecify;
 }

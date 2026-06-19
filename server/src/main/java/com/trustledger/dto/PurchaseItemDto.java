@@ -17,4 +17,13 @@ public class PurchaseItemDto {
     private BigDecimal weight;
     private BigDecimal noOfBags;
     private BigDecimal amountSpent;
+
+    // Fields for editing support in frontend
+    private BigDecimal bagWeight;
+    private BigDecimal rateApplied;
+    private BigDecimal ratePerQuintal;
+    private BigDecimal machineCost;
+    private String remarks;
+    private UUID godownId;
+    private UUID farmerId;
 }
