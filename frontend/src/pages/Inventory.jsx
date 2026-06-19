@@ -1,30 +1,39 @@
 import React, { useState, useEffect } from 'react';
 import { BulkPurchaseModal, GodownModal } from '../components/InventoryModals';
 import GodownDetailsModal from '../components/GodownDetailsModal';
-import { getInventorySummary, getInventoryTrace, logBulkPurchase, createGodown, getAllGodowns } from '../services/api';
+import { getInventorySummary, getInventoryTrace, logBulkPurchase, createGodown, getAllGodowns, updateGodown, deleteGodown } from '../services/api';
+import { useToast } from '../context/ToastContext';
+import EditGodownModal from '../components/EditGodownModal';
+import ConfirmDeleteModal from '../components/ConfirmDeleteModal';
 
 export default function Inventory() {
   const [isBulkModalOpen, setIsBulkModalOpen] = useState(false);
   const [isGodownModalOpen, setIsGodownModalOpen] = useState(false);
   const [selectedGodownId, setSelectedGodownId] = useState(null);
   const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
-  
   const [inventorySummary, setInventorySummary] = useState([]);
   const [movements, setMovements] = useState([]);
   const [traceCropType, setTraceCropType] = useState('RICE');
   const [isLoading, setIsLoading] = useState(true);
+  const [godownsList, setGodownsList] = useState([]);
+  const [godownToEdit, setGodownToEdit] = useState(null);
+  const [godownToDelete, setGodownToDelete] = useState(null);
+  const toast = useToast();
 
   const fetchData = async () => {
     setIsLoading(true);
     try {
       const summaryData = await getInventorySummary();
-      // summaryData is List of { godownName, cropType, totalQuantity }
       setInventorySummary(summaryData);
 
       const traceData = await getInventoryTrace(traceCropType);
       setMovements(traceData);
+
+      const listData = await getAllGodowns();
+      setGodownsList(listData || []);
     } catch (err) {
       console.error("Failed to fetch inventory data", err);
+      toast.error('Failed to load inventory data');
     } finally {
       setIsLoading(false);
     }
@@ -37,20 +46,50 @@ export default function Inventory() {
   const handleBulkSubmit = async (data) => {
     try {
       await logBulkPurchase(data);
+      toast.success('Bulk purchase logged successfully!');
       setIsBulkModalOpen(false);
       fetchData();
     } catch (err) {
       console.error("Failed to submit bulk purchase", err);
+      toast.error(err.message || 'Failed to log bulk purchase');
     }
   };
 
   const handleGodownSubmit = async (data) => {
     try {
       await createGodown(data);
+      toast.success('Godown registered successfully!');
       setIsGodownModalOpen(false);
       fetchData();
     } catch (err) {
       console.error("Failed to create godown", err);
+      toast.error(err.message || 'Failed to register godown');
+    }
+  };
+
+  const handleEditGodown = async (data) => {
+    if (!godownToEdit) return;
+    try {
+      await updateGodown(godownToEdit.id, data);
+      toast.success('Godown updated successfully!');
+      setGodownToEdit(null);
+      fetchData();
+    } catch (err) {
+      console.error("Failed to update godown", err);
+      toast.error(err.message || 'Failed to update godown profile');
+    }
+  };
+
+  const handleDeleteGodown = async () => {
+    if (!godownToDelete) return;
+    try {
+      await deleteGodown(godownToDelete.id);
+      toast.success('Godown deleted successfully!');
+      setGodownToDelete(null);
+      fetchData();
+    } catch (err) {
+      console.error("Failed to delete godown", err);
+      toast.error(err.message || 'Failed to delete godown. Verify it has no active inventory.');
     }
   };
 
@@ -108,28 +147,53 @@ export default function Inventory() {
           {/* Godowns Section */}
           <section>
             <h3 className="font-headline-lg text-headline-lg text-on-surface mb-6 border-b border-outline-variant pb-2">Stock by Godown</h3>
-            {Object.keys(groupedByGodown).length === 0 ? (
-              <div className="bg-surface-container-lowest border border-outline-variant p-8 text-center text-on-surface-variant">
+            {godownsList.length === 0 ? (
+              <div className="bg-surface-container-lowest border border-outline-variant p-8 text-center text-on-surface-variant font-medium">
                 No godowns found. Please add a godown to start tracking inventory.
               </div>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-gutter">
-                {Object.entries(groupedByGodown).map(([godownName, crops], index) => {
-                  const currentGodown = inventorySummary.find(item => item.godownName === godownName);
+                {godownsList.map((godown) => {
+                  const riceSummary = inventorySummary.find(item => item.godownId === godown.id && String(item.cropType || '').toUpperCase() === 'RICE');
+                  const maizeSummary = inventorySummary.find(item => item.godownId === godown.id && String(item.cropType || '').toUpperCase() === 'MAIZE');
+                  const riceQty = riceSummary ? riceSummary.totalQuantity : 0;
+                  const maizeQty = maizeSummary ? maizeSummary.totalQuantity : 0;
                   return (
                   <div 
-                    key={index} 
-                    className="border-2 border-[#000000] bg-surface-container-lowest flex flex-col hover:shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] transition-all cursor-pointer transform hover:-translate-y-1"
+                    key={godown.id} 
+                    className="border-2 border-[#000000] bg-surface-container-lowest flex flex-col hover:shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] transition-all cursor-pointer transform hover:-translate-y-1 rounded-none overflow-hidden"
                     onClick={() => {
-                        if(currentGodown) {
-                            setSelectedGodownId(currentGodown.godownId);
-                            setIsDetailsModalOpen(true);
-                        }
+                        setSelectedGodownId(godown.id);
+                        setIsDetailsModalOpen(true);
                     }}
                   >
-                    <div className="bg-surface-variant p-4 border-b-2 border-[#000000] flex items-center gap-2">
-                      <span className="material-symbols-outlined text-on-surface">warehouse</span>
-                      <h4 className="font-headline-md text-headline-md text-on-surface font-bold">{godownName}</h4>
+                    <div className="bg-surface-variant p-4 border-b-2 border-[#000000] flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-2">
+                        <span className="material-symbols-outlined text-on-surface">warehouse</span>
+                        <h4 className="font-headline-md text-headline-md text-on-surface font-bold">{godown.name}</h4>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setGodownToEdit(godown);
+                          }}
+                          className="p-1.5 border border-outline hover:border-black hover:bg-surface-variant text-on-surface rounded-none cursor-pointer transition-colors flex items-center justify-center bg-surface"
+                          title="Edit Godown"
+                        >
+                          <span className="material-symbols-outlined text-[18px]">edit</span>
+                        </button>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setGodownToDelete(godown);
+                          }}
+                          className="p-1.5 border border-outline hover:border-error hover:bg-[#F8D7DA] hover:text-[#842029] text-on-surface rounded-none cursor-pointer transition-colors flex items-center justify-center bg-surface"
+                          title="Delete Godown"
+                        >
+                          <span className="material-symbols-outlined text-[18px]">delete</span>
+                        </button>
+                      </div>
                     </div>
                     <div className="p-6 flex flex-col gap-6">
                       <div className="flex justify-between items-center">
@@ -138,7 +202,7 @@ export default function Inventory() {
                           <span className="font-label-bold text-on-surface-variant uppercase tracking-wider">Rice Stock</span>
                         </div>
                         <div className="text-right">
-                          <div className="font-number-xl text-[24px] text-on-surface">{crops.RICE?.toFixed(2) || '0.00'}</div>
+                          <div className="font-number-xl text-[24px] text-on-surface">{riceQty?.toFixed(2) || '0.00'}</div>
                           <div className="font-body-sm text-secondary">Kg</div>
                         </div>
                       </div>
@@ -149,7 +213,7 @@ export default function Inventory() {
                           <span className="font-label-bold text-on-surface-variant uppercase tracking-wider">Maize Stock</span>
                         </div>
                         <div className="text-right">
-                          <div className="font-number-xl text-[24px] text-on-surface">{crops.MAIZE?.toFixed(2) || '0.00'}</div>
+                          <div className="font-number-xl text-[24px] text-on-surface">{maizeQty?.toFixed(2) || '0.00'}</div>
                           <div className="font-body-sm text-secondary">Kg</div>
                         </div>
                       </div>
@@ -230,6 +294,21 @@ export default function Inventory() {
 
       <BulkPurchaseModal isOpen={isBulkModalOpen} onClose={() => setIsBulkModalOpen(false)} onSubmit={handleBulkSubmit} />
       <GodownModal isOpen={isGodownModalOpen} onClose={() => setIsGodownModalOpen(false)} onSubmit={handleGodownSubmit} />
+      
+      <EditGodownModal 
+        isOpen={!!godownToEdit} 
+        onClose={() => setGodownToEdit(null)} 
+        onSubmit={handleEditGodown} 
+        godown={godownToEdit} 
+      />
+
+      <ConfirmDeleteModal 
+        isOpen={!!godownToDelete} 
+        onClose={() => setGodownToDelete(null)} 
+        onConfirm={handleDeleteGodown} 
+        title="Delete Godown Profile" 
+        message={`Are you sure you want to delete the godown "${godownToDelete?.name}"? All associated inventory logs, bulk purchases, and crop purchase transactions will be removed, and farmer balances will be recalculated. This action is blocked if there is active stock.`} 
+      />
       <GodownDetailsModal isOpen={isDetailsModalOpen} onClose={() => setIsDetailsModalOpen(false)} godownId={selectedGodownId} />
     </div>
   );

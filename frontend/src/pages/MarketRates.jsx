@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { getMarketRates, updateMarketRates, getRatesHistory } from '../services/api';
+import { useToast } from '../context/ToastContext';
 
 export default function MarketRates() {
   const [rates, setRates] = useState({
@@ -11,6 +12,7 @@ export default function MarketRates() {
   const [isPublishing, setIsPublishing] = useState(false);
   const [selectedCrop, setSelectedCrop] = useState('rice');
   const [hoveredIndex, setHoveredIndex] = useState(null);
+  const toast = useToast();
 
   useEffect(() => {
     getMarketRates().then((data) => {
@@ -24,11 +26,17 @@ export default function MarketRates() {
         rice: riceVal,
         maize: maizeVal
       });
-    }).catch(console.error);
+    }).catch(err => {
+      console.error(err);
+      toast.error('Failed to load market rates');
+    });
 
     getRatesHistory().then((data) => {
       setHistory(data || { rice: [], maize: [] });
-    }).catch(console.error);
+    }).catch(err => {
+      console.error(err);
+      toast.error('Failed to load rates history');
+    });
   }, []);
 
   const handleRateChange = (commodity, field, value) => {
@@ -48,7 +56,7 @@ export default function MarketRates() {
         rice: { buyRate: parseFloat(rates.rice.buyRate) || 0, bagWeight: parseFloat(rates.rice.bagWeight) || 101 },
         maize: { buyRate: parseFloat(rates.maize.buyRate) || 0, bagWeight: parseFloat(rates.maize.bagWeight) || 101 }
       });
-      alert('Rates published successfully!');
+      toast.success('Rates published successfully!');
       setInitialRates({
         rice: rates.rice.buyRate,
         maize: rates.maize.buyRate
@@ -57,7 +65,7 @@ export default function MarketRates() {
       setHistory(histData || { rice: [], maize: [] });
     } catch (err) {
       console.error(err);
-      alert('Failed to publish rates');
+      toast.error(err.message || 'Failed to publish rates');
     } finally {
       setIsPublishing(false);
     }

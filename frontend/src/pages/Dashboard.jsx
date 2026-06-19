@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { getFarmers, createFarmer, logPurchase } from '../services/api';
 import { Link } from 'react-router-dom';
 import { NewFarmerModal, PurchaseModal } from '../components/Modals';
+import { useToast } from '../context/ToastContext';
 
 // Local helper modal to select a farmer before making a purchase
 function SelectFarmerModal({ isOpen, onClose, farmers, onSelect }) {
@@ -55,12 +56,17 @@ export default function Dashboard() {
   const [isSelectFarmerOpen, setIsSelectFarmerOpen] = useState(false);
   const [isPurchaseOpen, setIsPurchaseOpen] = useState(false);
   const [selectedFarmerId, setSelectedFarmerId] = useState('');
+  const toast = useToast();
 
   const loadData = () => {
     getFarmers().then(data => {
       setFarmers(data);
       setIsLoading(false);
-    }).catch(console.error);
+    }).catch(err => {
+      console.error(err);
+      toast.error('Failed to load farmers data');
+      setIsLoading(false);
+    });
   };
 
   useEffect(() => {
@@ -84,8 +90,12 @@ export default function Dashboard() {
 
   const handleNewFarmerSubmit = (data) => {
     createFarmer(data).then(() => {
+      toast.success('Farmer registered successfully!');
       setIsNewFarmerOpen(false);
       loadData();
+    }).catch(err => {
+      console.error(err);
+      toast.error(err.message || 'Failed to register farmer');
     });
   };
 
@@ -97,9 +107,13 @@ export default function Dashboard() {
 
   const handlePurchaseSubmit = (payload) => {
     logPurchase({ farmerId: selectedFarmerId, ...payload }).then(() => {
+      toast.success('Crop purchase recorded successfully!');
       setIsPurchaseOpen(false);
       setSelectedFarmerId('');
       loadData();
+    }).catch(err => {
+      console.error(err);
+      toast.error(err.message || 'Failed to record crop purchase');
     });
   };
 
@@ -174,7 +188,7 @@ export default function Dashboard() {
       </section>
 
       {/* Analytics Placeholder */}
-      <div className="bg-surface-container-lowest border-2 border-[#000000] p-12 text-center text-on-surface-variant flex flex-col items-center justify-center">
+      <div className="bg-surface-container-lowest border-2 border-[#000000] p-6 md:p-12 text-center text-on-surface-variant flex flex-col items-center justify-center">
         <span className="material-symbols-outlined text-[48px] text-primary-container mb-4">analytics</span>
         <p className="mb-6 font-body-lg text-on-surface">Advanced Dashboard Analytics coming soon.</p>
         <Link to="/farmers" className="inline-flex items-center gap-2 h-[48px] px-6 bg-primary-container text-on-primary font-label-bold hover:opacity-90 transition-opacity">

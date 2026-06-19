@@ -45,7 +45,7 @@ export function NewFarmerModal({ isOpen, onClose, onSubmit }) {
   );
 }
 
-export function PurchaseModal({ isOpen, onClose, onSubmit, farmerName = "Current Farmer" }) {
+export function PurchaseModal({ isOpen, onClose, onSubmit, farmerName = "Current Farmer", purchase = null }) {
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
   const [cropType, setCropType] = useState('rice');
   const [weight, setWeight] = useState('');
@@ -64,7 +64,7 @@ export function PurchaseModal({ isOpen, onClose, onSubmit, farmerName = "Current
     if (isOpen) {
       getMarketRates().then(rates => {
         setCurrentMarketRates(rates);
-        if (rates && rates[cropType]) {
+        if (!purchase && rates && rates[cropType]) {
           setRate(rates[cropType].buyRate?.toString() || '2450.00');
           setBagWeight(rates[cropType].bagWeight?.toString() || '101');
         }
@@ -72,12 +72,67 @@ export function PurchaseModal({ isOpen, onClose, onSubmit, farmerName = "Current
       
       getAllGodowns().then(data => {
         setGodowns(data);
-        if (data.length > 0) {
+        if (!purchase && data.length > 0) {
           setGodownId(data[0].id);
         }
       }).catch(console.error);
     }
-  }, [isOpen, cropType]);
+  }, [isOpen]);
+
+  useEffect(() => {
+    if (isOpen && !purchase) {
+      if (currentMarketRates && currentMarketRates[cropType]) {
+        setRate(currentMarketRates[cropType].buyRate?.toString() || '2450.00');
+        setBagWeight(currentMarketRates[cropType].bagWeight?.toString() || '101');
+      }
+    }
+  }, [cropType, currentMarketRates, isOpen, purchase]);
+
+  useEffect(() => {
+    if (isOpen) {
+      if (purchase) {
+        setDate(purchase.date || new Date().toISOString().split('T')[0]);
+        setCropType(purchase.cropType?.toLowerCase() || 'rice');
+        setWeight(purchase.weight?.toString() || '');
+        setBagWeight(purchase.bagWeight?.toString() || '101');
+        setRate(purchase.rateApplied?.toString() || '2450.00');
+        setRemarks(purchase.remarks || '');
+        const hasMachineCost = parseFloat(purchase.machineCost || 0) > 0;
+        setApplyMachineCost(hasMachineCost);
+        if (hasMachineCost) {
+          setMachineCost(purchase.machineCost?.toString() || '0.00');
+          let calculatedBags = parseFloat(purchase.weight || 0) / parseFloat(purchase.bagWeight || 101);
+          const floorBags = Math.floor(calculatedBags);
+          if (calculatedBags - floorBags > 0.90) {
+            calculatedBags = Math.ceil(calculatedBags);
+          } else {
+            calculatedBags = floorBags;
+          }
+          if (calculatedBags > 0) {
+            setMachineRate((parseFloat(purchase.machineCost) / calculatedBags).toFixed(2));
+          } else {
+            setMachineRate('110');
+          }
+        } else {
+          setMachineCost('0.00');
+          setMachineRate('110');
+        }
+        if (purchase.godownId) {
+          setGodownId(purchase.godownId);
+        } else if (purchase.godown?.id) {
+          setGodownId(purchase.godown.id);
+        }
+      } else {
+        setDate(new Date().toISOString().split('T')[0]);
+        setCropType('rice');
+        setWeight('');
+        setRemarks('');
+        setApplyMachineCost(false);
+        setMachineCost('0.00');
+        setMachineRate('110');
+      }
+    }
+  }, [isOpen, purchase]);
 
   let calculatedBags = parseFloat(weight || 0) / parseFloat(bagWeight || 101);
   const floorBags = Math.floor(calculatedBags);
@@ -123,6 +178,7 @@ export function PurchaseModal({ isOpen, onClose, onSubmit, farmerName = "Current
       return; // Handled in UI
     }
     onSubmit({
+      id: purchase?.id,
       date,
       cropType,
       weight: parseFloat(weight),
@@ -147,7 +203,7 @@ export function PurchaseModal({ isOpen, onClose, onSubmit, farmerName = "Current
         <div className="bg-surface w-full max-w-lg border-2 border-[#000000] shadow-none flex flex-col max-h-[95vh]">
           {/* Modal Header */}
           <div className="flex justify-between items-center p-gutter border-b border-outline-variant shrink-0">
-            <h2 className="font-headline-md text-headline-md text-on-surface">Add Crop Purchase</h2>
+            <h2 className="font-headline-md text-headline-md text-on-surface">{purchase ? 'Edit Crop Purchase' : 'Add Crop Purchase'}</h2>
             <button type="button" onClick={onClose} aria-label="Close modal" className="h-[48px] w-[48px] flex items-center justify-center text-on-surface hover:bg-surface-container-high transition-colors">
               <span className="material-symbols-outlined" style={{ fontVariationSettings: "'FILL' 0" }}>close</span>
             </button>
@@ -358,24 +414,46 @@ export function PurchaseModal({ isOpen, onClose, onSubmit, farmerName = "Current
   );
 }
 
-export function DebitModal({ isOpen, onClose, onSubmit }) {
+export function DebitModal({ isOpen, onClose, onSubmit, debit = null }) {
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
   const [category, setCategory] = useState('cash');
+  const [otherCategorySpecify, setOtherCategorySpecify] = useState('');
   const [costAmount, setCostAmount] = useState('');
   const [description, setDescription] = useState('');
+
+  useEffect(() => {
+    if (isOpen) {
+      if (debit) {
+        setDate(debit.date || new Date().toISOString().split('T')[0]);
+        setCategory(debit.category?.toLowerCase() || 'cash');
+        setOtherCategorySpecify(debit.otherCategorySpecify || '');
+        setCostAmount(debit.costAmount?.toString() || debit.amount?.toString() || '');
+        setDescription(debit.rawDescription || debit.description || '');
+      } else {
+        setDate(new Date().toISOString().split('T')[0]);
+        setCategory('cash');
+        setOtherCategorySpecify('');
+        setCostAmount('');
+        setDescription('');
+      }
+    }
+  }, [isOpen, debit]);
 
   if (!isOpen) return null;
 
   const handleSubmit = (e) => {
     e.preventDefault();
     onSubmit({
+      id: debit?.id,
       date,
       category: category.toUpperCase(),
+      otherCategorySpecify: category === 'other' ? otherCategorySpecify : '',
       costAmount: parseFloat(costAmount),
       description
     });
     setCostAmount('');
     setDescription('');
+    setOtherCategorySpecify('');
   };
 
   return (
@@ -386,7 +464,7 @@ export function DebitModal({ isOpen, onClose, onSubmit }) {
       <div aria-labelledby="modal-title" aria-modal="true" className="relative bg-surface w-full max-w-lg border-2 border-on-surface rounded-none z-50 shadow-none flex flex-col" role="dialog">
         {/* Header */}
         <div className="flex items-center justify-between p-gutter border-b border-secondary-fixed">
-          <h2 className="font-headline-md text-headline-md text-on-surface" id="modal-title">Record Advance/Material</h2>
+          <h2 className="font-headline-md text-headline-md text-on-surface" id="modal-title">{debit ? 'Edit Advance/Material' : 'Record Advance/Material'}</h2>
           <button type="button" onClick={onClose} aria-label="Close modal" className="h-touch-target-min w-touch-target-min flex items-center justify-center text-on-surface-variant hover:text-on-surface transition-colors">
             <span className="material-symbols-outlined" style={{ fontVariationSettings: "'FILL' 1" }}>close</span>
           </button>
@@ -414,6 +492,13 @@ export function DebitModal({ isOpen, onClose, onSubmit }) {
                 </div>
               </div>
             </div>
+            {/* Specification Field for Category OTHER */}
+            {category === 'other' && (
+              <div className="flex flex-col gap-2">
+                <label className="font-label-bold text-label-bold text-on-surface" htmlFor="other-specify-input">Specify Category</label>
+                <input required className="h-touch-target-min bg-surface border border-secondary-fixed text-on-surface font-body-md text-body-md px-4 focus:outline-none focus:border-on-surface focus:border-2 transition-all w-full" id="other-specify-input" type="text" placeholder="e.g. Fertilizer, Equipment rental" value={otherCategorySpecify} onChange={e => setOtherCategorySpecify(e.target.value)} />
+              </div>
+            )}
             {/* Cost/Amount Field */}
             <div className="flex flex-col gap-2">
               <label className="font-label-bold text-label-bold text-on-surface" htmlFor="amount-input">Cost / Amount</label>
@@ -431,8 +516,8 @@ export function DebitModal({ isOpen, onClose, onSubmit }) {
           {/* Footer / Action */}
           <div className="p-gutter border-t border-secondary-fixed bg-surface-container-lowest">
             <button type="submit" className="w-full h-touch-target-min bg-error text-on-error font-label-bold text-label-bold flex items-center justify-center gap-2 hover:opacity-90 active:scale-[0.98] transition-all rounded-none border border-transparent">
-              <span className="material-symbols-outlined">remove</span>
-              Deduct from Balance
+              <span className="material-symbols-outlined">{debit ? 'save' : 'remove'}</span>
+              {debit ? 'Save Changes' : 'Deduct from Balance'}
             </button>
           </div>
         </form>

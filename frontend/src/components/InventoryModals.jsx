@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { getAllGodowns } from '../services/api';
+import { useToast } from '../context/ToastContext';
 
-export function BulkPurchaseModal({ isOpen, onClose, onSubmit }) {
+export function BulkPurchaseModal({ isOpen, onClose, onSubmit, bulkPurchase = null }) {
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
   const [supplierName, setSupplierName] = useState('');
   const [cropType, setCropType] = useState('RICE');
@@ -14,16 +15,46 @@ export function BulkPurchaseModal({ isOpen, onClose, onSubmit }) {
   const noOfBags = weight && bagWeight ? (parseFloat(weight) / parseFloat(bagWeight)).toFixed(2) : '0.00';
   const estTotalAmount = weight && ratePerQuintal ? ((parseFloat(weight) / 100) * parseFloat(ratePerQuintal)).toFixed(2) : '0.00';
 
+  const toast = useToast();
+
   useEffect(() => {
     if (isOpen) {
       getAllGodowns().then(data => {
         setGodowns(data);
-        if (data.length > 0) {
+        if (!bulkPurchase && data.length > 0) {
           setGodownId(data[0].id);
         }
-      }).catch(console.error);
+      }).catch(err => {
+        console.error(err);
+        toast.error('Failed to load godowns');
+      });
     }
   }, [isOpen]);
+
+  useEffect(() => {
+    if (isOpen) {
+      if (bulkPurchase) {
+        setDate(bulkPurchase.date || new Date().toISOString().split('T')[0]);
+        setSupplierName(bulkPurchase.supplierName || '');
+        setCropType(bulkPurchase.cropType?.toUpperCase() || 'RICE');
+        setWeight(bulkPurchase.weight?.toString() || '');
+        setRatePerQuintal(bulkPurchase.ratePerQuintal?.toString() || '');
+        setBagWeight(bulkPurchase.bagWeight?.toString() || '101');
+        if (bulkPurchase.godownId) {
+          setGodownId(bulkPurchase.godownId);
+        } else if (bulkPurchase.godown?.id) {
+          setGodownId(bulkPurchase.godown.id);
+        }
+      } else {
+        setDate(new Date().toISOString().split('T')[0]);
+        setSupplierName('');
+        setCropType('RICE');
+        setWeight('');
+        setRatePerQuintal('');
+        setBagWeight('101');
+      }
+    }
+  }, [isOpen, bulkPurchase]);
 
   if (!isOpen) return null;
 
@@ -32,6 +63,7 @@ export function BulkPurchaseModal({ isOpen, onClose, onSubmit }) {
     if (!godownId) return;
 
     onSubmit({
+      id: bulkPurchase?.id,
       date,
       supplierName,
       cropType,
@@ -50,7 +82,7 @@ export function BulkPurchaseModal({ isOpen, onClose, onSubmit }) {
     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-on-surface/10 backdrop-blur-sm p-4 md:p-container-margin overflow-y-auto">
       <div className="w-full max-w-xl bg-surface border-2 border-[#000000] relative flex flex-col shadow-none">
         <div className="flex items-center justify-between p-6 border-b border-outline-variant">
-          <h2 className="font-headline-lg text-headline-lg text-on-surface">Record Bulk Purchase</h2>
+          <h2 className="font-headline-lg text-headline-lg text-on-surface">{bulkPurchase ? 'Edit Bulk Purchase' : 'Record Bulk Purchase'}</h2>
           <button type="button" onClick={onClose} className="w-12 h-12 flex items-center justify-center hover:bg-surface-container-high transition-colors">
             <span className="material-symbols-outlined text-on-surface" style={{ fontVariationSettings: "'FILL' 0" }}>close</span>
           </button>
@@ -124,7 +156,7 @@ export function BulkPurchaseModal({ isOpen, onClose, onSubmit }) {
               Cancel
             </button>
             <button type="submit" disabled={godowns.length === 0} className="flex-1 h-[48px] bg-primary-container text-on-primary font-label-bold hover:opacity-90 transition-opacity disabled:opacity-50">
-              Record Bulk Purchase
+              {bulkPurchase ? 'Save Changes' : 'Record Bulk Purchase'}
             </button>
           </div>
         </form>

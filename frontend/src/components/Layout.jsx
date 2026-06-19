@@ -1,11 +1,20 @@
 import React, { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import NewTradeModal from './NewTradeModal';
+import { useAuth } from '../context/AuthContext';
 
 export default function Layout({ children }) {
   const location = useLocation();
   const path = location.pathname;
   const [isNewTradeOpen, setIsNewTradeOpen] = useState(false);
+  const { logout } = useAuth();
+
+  const handleBottomItemClick = (e, label) => {
+    if (label === 'Logout') {
+      e.preventDefault();
+      logout();
+    }
+  };
 
   const sidebarNavItems = [
     { icon: 'dashboard', label: 'Dashboard', path: '/' },
@@ -72,7 +81,12 @@ export default function Layout({ children }) {
         </ul>
         <div className="mt-auto px-base pb-4 flex flex-col gap-1 border-t border-surface-variant pt-4 mx-base">
           {bottomNavItems.map((item, idx) => (
-            <a key={idx} className="flex items-center gap-3 px-4 h-touch-target-min rounded font-label-bold text-label-bold text-on-surface-variant hover:bg-surface-container-high transition-all duration-200 active:scale-95" href="#">
+            <a 
+              key={idx} 
+              className="flex items-center gap-3 px-4 h-touch-target-min rounded font-label-bold text-label-bold text-on-surface-variant hover:bg-surface-container-high transition-all duration-200 active:scale-95 cursor-pointer" 
+              onClick={(e) => handleBottomItemClick(e, item.label)}
+              href="#"
+            >
               <span className="material-symbols-outlined">{item.icon}</span>
               {item.label}
             </a>
@@ -98,6 +112,15 @@ export default function Layout({ children }) {
           ))}
         </ul>
       </nav>
+      {/* Mobile Floating Action Button for New Trade */}
+      <button 
+        onClick={() => setIsNewTradeOpen(true)} 
+        className="md:hidden fixed right-6 bottom-20 bg-primary-container text-on-primary w-14 h-14 rounded-full border-2 border-[#000000] shadow-[3px_3px_0px_0px_rgba(0,0,0,1)] flex items-center justify-center z-50 cursor-pointer active:scale-95 transition-transform"
+        aria-label="New Trade"
+      >
+        <span className="material-symbols-outlined text-2xl font-bold" style={{ fontVariationSettings: "'FILL' 1" }}>add</span>
+      </button>
+
       <NewTradeModal isOpen={isNewTradeOpen} onClose={() => setIsNewTradeOpen(false)} />
     </div>
   );

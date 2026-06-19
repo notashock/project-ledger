@@ -1,11 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { getFarmers, getAllGodowns, getMarketRates, logPurchase, logDebit, logBulkPurchase } from '../services/api';
+import { useToast } from '../context/ToastContext';
 
 export default function NewTradeModal({ isOpen, onClose }) {
   const [tradeType, setTradeType] = useState(''); // 'farmer_purchase', 'bulk_purchase', 'farmer_debit'
   const [farmers, setFarmers] = useState([]);
   const [godowns, setGodowns] = useState([]);
   const [marketRates, setMarketRates] = useState({});
+  const toast = useToast();
 
   // Form states
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
@@ -31,6 +33,7 @@ export default function NewTradeModal({ isOpen, onClose }) {
 
   // Debit fields
   const [debitCategory, setDebitCategory] = useState('cash');
+  const [otherCategorySpecify, setOtherCategorySpecify] = useState('');
   const [debitAmount, setDebitAmount] = useState('');
   const [debitDescription, setDebitDescription] = useState('');
 
@@ -93,6 +96,7 @@ export default function NewTradeModal({ isOpen, onClose }) {
     setBulkRatePerQuintal('');
     setDebitAmount('');
     setDebitDescription('');
+    setOtherCategorySpecify('');
     setTradeType('');
   };
 
@@ -133,17 +137,19 @@ export default function NewTradeModal({ isOpen, onClose }) {
           farmerId,
           date,
           category: debitCategory.toUpperCase(),
+          otherCategorySpecify: debitCategory === 'other' ? otherCategorySpecify : '',
           costAmount: parseFloat(debitAmount),
           description: debitDescription
         });
       }
+      toast.success('Transaction logged successfully!');
       handleResetForm();
       onClose();
       // Reload page to reflect new balances/inventory
       window.location.reload();
     } catch (err) {
       console.error('Error logging trade:', err);
-      alert('Failed to log transaction. Please verify your inputs.');
+      toast.error(err.message || 'Failed to log transaction. Please verify your inputs.');
     }
   };
 
@@ -405,6 +411,13 @@ export default function NewTradeModal({ isOpen, onClose }) {
                       <span className="material-symbols-outlined absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-on-surface">arrow_drop_down</span>
                     </div>
                   </div>
+
+                  {debitCategory === 'other' && (
+                    <div className="flex flex-col gap-2 col-span-1 md:col-span-2">
+                      <label className="font-label-bold text-label-bold text-on-surface">Specify Category</label>
+                      <input required type="text" placeholder="e.g. Fertilizer, Equipment rental" value={otherCategorySpecify} onChange={e => setOtherCategorySpecify(e.target.value)} className="h-[48px] px-4 border border-outline focus:border-[#000000] focus:border-2 bg-surface outline-none transition-all" />
+                    </div>
+                  )}
 
                   <div className="flex flex-col gap-2">
                     <label className="font-label-bold text-label-bold text-on-surface">Cost / Amount (₹)</label>

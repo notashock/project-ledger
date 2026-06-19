@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getFarmers, createFarmer } from '../services/api';
 import { NewFarmerModal } from './Modals';
+import { useToast } from '../context/ToastContext';
 
 export default function FarmersDirectory() {
   const navigate = useNavigate();
@@ -9,19 +10,27 @@ export default function FarmersDirectory() {
   const [search, setSearch] = useState('');
   const [villageFilter, setVillageFilter] = useState('');
   const [isModalOpen, setModalOpen] = useState(false);
+  const toast = useToast();
 
   useEffect(() => {
     loadFarmers();
   }, []);
 
   const loadFarmers = () => {
-    getFarmers().then(setFarmersList).catch(console.error);
+    getFarmers().then(setFarmersList).catch(err => {
+      console.error(err);
+      toast.error('Failed to load farmers');
+    });
   };
 
   const handleRegister = (payload) => {
     createFarmer(payload).then(() => {
+      toast.success('Farmer registered successfully!');
       setModalOpen(false);
       loadFarmers();
+    }).catch(err => {
+      console.error(err);
+      toast.error(err.message || 'Failed to register farmer');
     });
   };
 

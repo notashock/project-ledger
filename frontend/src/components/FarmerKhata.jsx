@@ -1,37 +1,106 @@
 import React, { useEffect, useState } from 'react';
-import { useParams, Link } from 'react-router-dom';
-import { getFarmerHistory, logPurchase, logDebit } from '../services/api';
+import { useParams, Link, useNavigate } from 'react-router-dom';
+import { getFarmerHistory, logPurchase, logDebit, updateFarmer, deleteFarmer, deletePurchase, deleteDebit, updatePurchase, updateDebit } from '../services/api';
 import { PurchaseModal, DebitModal } from './Modals';
+import { useToast } from '../context/ToastContext';
+import EditFarmerModal from './EditFarmerModal';
+import ConfirmDeleteModal from './ConfirmDeleteModal';
 
 export default function FarmerKhata() {
   const { id } = useParams();
+  const navigate = useNavigate();
   const [data, setData] = useState(null);
   const [isPurchaseOpen, setPurchaseOpen] = useState(false);
   const [isDebitOpen, setDebitOpen] = useState(false);
+  const [isEditOpen, setEditOpen] = useState(false);
+  const [isDeleteProfileOpen, setDeleteProfileOpen] = useState(false);
+  const [txToDelete, setTxToDelete] = useState(null);
+  const [editingPurchase, setEditingPurchase] = useState(null);
+  const [editingDebit, setEditingDebit] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
+  const toast = useToast();
 
   useEffect(() => {
     const handler = setTimeout(() => {
-      getFarmerHistory(id, searchQuery).then(setData).catch(console.error);
+      getFarmerHistory(id, searchQuery).then(setData).catch(err => {
+        console.error(err);
+        toast.error('Failed to load ledger history');
+      });
     }, 300);
     return () => clearTimeout(handler);
   }, [id, searchQuery]);
 
   const loadData = () => {
-    getFarmerHistory(id, searchQuery).then(setData).catch(console.error);
+    getFarmerHistory(id, searchQuery).then(setData).catch(err => {
+      console.error(err);
+      toast.error('Failed to reload ledger history');
+    });
   };
 
   const handlePurchase = (payload) => {
-    logPurchase({ farmerId: id, ...payload }).then(() => {
+    const action = payload.id 
+      ? updatePurchase(payload.id, { farmerId: id, ...payload })
+      : logPurchase({ farmerId: id, ...payload });
+
+    action.then(() => {
+      toast.success(payload.id ? 'Crop purchase updated successfully!' : 'Crop purchase logged successfully!');
       setPurchaseOpen(false);
+      setEditingPurchase(null);
       loadData();
+    }).catch(err => {
+      console.error(err);
+      toast.error(err.message || 'Failed to log purchase');
     });
   };
 
   const handleDebit = (payload) => {
-    logDebit({ farmerId: id, ...payload }).then(() => {
+    const action = payload.id
+      ? updateDebit(payload.id, { farmerId: id, ...payload })
+      : logDebit({ farmerId: id, ...payload });
+
+    action.then(() => {
+      toast.success(payload.id ? 'Debit/Advance updated successfully!' : 'Debit/Advance logged successfully!');
       setDebitOpen(false);
+      setEditingDebit(null);
       loadData();
+    }).catch(err => {
+      console.error(err);
+      toast.error(err.message || 'Failed to log debit/advance');
+    });
+  };
+
+  const handleEditProfile = (payload) => {
+    updateFarmer(id, payload).then(() => {
+      toast.success('Farmer profile updated successfully!');
+      setEditOpen(false);
+      loadData();
+    }).catch(err => {
+      console.error(err);
+      toast.error(err.message || 'Failed to update profile');
+    });
+  };
+
+  const handleDeleteProfile = () => {
+    deleteFarmer(id).then(() => {
+      toast.success('Farmer profile and all transactions deleted successfully!');
+      setDeleteProfileOpen(false);
+      navigate('/');
+    }).catch(err => {
+      console.error(err);
+      toast.error(err.message || 'Failed to delete farmer profile');
+    });
+  };
+
+  const handleDeleteTransaction = () => {
+    if (!txToDelete) return;
+    const deleteApi = txToDelete.type === 'PURCHASE' ? deletePurchase : deleteDebit;
+    deleteApi(txToDelete.id).then(() => {
+      toast.success('Transaction deleted and balances recalculated!');
+      setTxToDelete(null);
+      loadData();
+    }).catch(err => {
+      console.error(err);
+      toast.error(err.message || 'Failed to delete transaction');
     });
   };
 
@@ -74,17 +143,41 @@ export default function FarmerKhata() {
             <h2 className="text-display-lg-mobile md:text-display-lg font-display-lg-mobile md:font-display-lg text-on-surface mb-2">
               {data.farmerName}
             </h2>
-            <div className="flex items-center gap-2 text-on-surface-variant font-body-lg text-body-lg">
-              <span className="material-symbols-outlined text-[20px]">location_on</span>
-              Village: Ledger Account
+            <div className="flex flex-col gap-1 text-on-surface-variant font-body-lg text-body-lg">
+              <div className="flex items-center gap-2">
+                <span className="material-symbols-outlined text-[20px]">location_on</span>
+                Village: {data.village || 'N/A'}
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="material-symbols-outlined text-[20px]">call</span>
+                Phone: {data.phone || 'N/A'}
+              </div>
             </div>
           </div>
-          <div className="text-right">
-            <p className="text-on-surface-variant font-label-bold text-label-bold uppercase tracking-wider mb-2">
-              Net Balance
-            </p>
-            <div className={`text-number-xl font-number-xl ${isPositive ? 'text-primary-container' : 'text-error'}`}>
-              {isPositive ? '' : '-'}₹ {Math.abs(data.netBalance).toLocaleString()}
+          <div className="text-right w-full md:w-auto flex flex-col justify-between items-start md:items-end gap-4">
+            <div>
+              <p className="text-on-surface-variant font-label-bold text-label-bold uppercase tracking-wider mb-2">
+                Net Balance
+              </p>
+              <div className={`text-number-xl font-number-xl ${isPositive ? 'text-primary-container' : 'text-error'}`}>
+                {isPositive ? '' : '-'}₹ {Math.abs(data.netBalance).toLocaleString()}
+              </div>
+            </div>
+            <div className="flex gap-2 w-full md:w-auto mt-2">
+              <button 
+                onClick={() => setEditOpen(true)}
+                className="flex-1 md:flex-none h-touch-target-min px-4 border-2 border-[#000000] text-[#000000] font-label-bold hover:bg-surface-variant transition-colors flex items-center justify-center gap-2 cursor-pointer bg-surface rounded-none"
+              >
+                <span className="material-symbols-outlined text-base">edit</span>
+                Edit Profile
+              </button>
+              <button 
+                onClick={() => setDeleteProfileOpen(true)}
+                className="flex-1 md:flex-none h-touch-target-min px-4 bg-[#DC3545] text-white border-2 border-[#000000] font-label-bold hover:bg-[#B52A37] transition-colors flex items-center justify-center gap-2 cursor-pointer rounded-none"
+              >
+                <span className="material-symbols-outlined text-base">delete</span>
+                Delete Farmer
+              </button>
             </div>
           </div>
         </div>
@@ -134,12 +227,40 @@ export default function FarmerKhata() {
                   <p className="font-body-md text-body-md text-on-surface-variant">{tx.description}</p>
                 </div>
               </div>
-              <div className="text-right w-full md:w-auto flex justify-between md:block items-center">
+              <div className="text-right w-full md:w-auto flex justify-between md:flex md:items-center md:gap-4 items-center">
                 <span className="md:hidden font-label-bold text-label-bold text-on-surface-variant">
                   Amount:
                 </span>
-                <div className={`font-headline-md text-headline-md font-bold ${tx.type === 'PURCHASE' ? 'text-primary-container' : 'text-error'}`}>
-                  {tx.sign} ₹ {tx.amount.toLocaleString()}
+                <div className="flex items-center gap-4">
+                  <div className={`font-headline-md text-headline-md font-bold ${tx.type === 'PURCHASE' ? 'text-primary-container' : 'text-error'}`}>
+                    {tx.sign} ₹ {tx.amount.toLocaleString()}
+                  </div>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      if (tx.type === 'PURCHASE') {
+                        setEditingPurchase(tx);
+                        setPurchaseOpen(true);
+                      } else {
+                        setEditingDebit(tx);
+                        setDebitOpen(true);
+                      }
+                    }}
+                    className="p-2 border border-outline hover:bg-surface-variant text-on-surface-variant rounded-none cursor-pointer transition-colors flex items-center justify-center bg-surface"
+                    title="Edit Transaction"
+                  >
+                    <span className="material-symbols-outlined text-[20px]">edit</span>
+                  </button>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setTxToDelete(tx);
+                    }}
+                    className="p-2 border border-outline hover:border-error hover:bg-[#F8D7DA] hover:text-[#842029] text-on-surface-variant rounded-none cursor-pointer transition-colors flex items-center justify-center bg-surface"
+                    title="Delete Transaction"
+                  >
+                    <span className="material-symbols-outlined text-[20px]">delete</span>
+                  </button>
                 </div>
               </div>
             </div>
@@ -147,8 +268,42 @@ export default function FarmerKhata() {
         </div>
       </div>
 
-      <PurchaseModal isOpen={isPurchaseOpen} onClose={() => setPurchaseOpen(false)} onSubmit={handlePurchase} />
-      <DebitModal isOpen={isDebitOpen} onClose={() => setDebitOpen(false)} onSubmit={handleDebit} />
+      <PurchaseModal 
+        isOpen={isPurchaseOpen} 
+        onClose={() => { setPurchaseOpen(false); setEditingPurchase(null); }} 
+        onSubmit={handlePurchase} 
+        purchase={editingPurchase}
+        farmerName={data.farmerName}
+      />
+      <DebitModal 
+        isOpen={isDebitOpen} 
+        onClose={() => { setDebitOpen(false); setEditingDebit(null); }} 
+        onSubmit={handleDebit} 
+        debit={editingDebit}
+      />
+      
+      <EditFarmerModal 
+        isOpen={isEditOpen} 
+        onClose={() => setEditOpen(false)} 
+        onSubmit={handleEditProfile} 
+        farmer={{ name: data.farmerName, village: data.village, phone: data.phone }} 
+      />
+
+      <ConfirmDeleteModal 
+        isOpen={isDeleteProfileOpen} 
+        onClose={() => setDeleteProfileOpen(false)} 
+        onConfirm={handleDeleteProfile} 
+        title="Delete Farmer Profile" 
+        message={`Are you sure you want to delete ${data.farmerName}? This will permanently remove the farmer's record, all crop purchases, and all advance/debit records. This action cannot be undone.`} 
+      />
+
+      <ConfirmDeleteModal 
+        isOpen={!!txToDelete} 
+        onClose={() => setTxToDelete(null)} 
+        onConfirm={handleDeleteTransaction} 
+        title="Delete Transaction" 
+        message={`Are you sure you want to delete this ${txToDelete?.type === 'PURCHASE' ? 'Crop Purchase' : 'Debit/Advance'} transaction? The farmer's net balance will be recalculated, and inventory adjustments will be applied permanently.`} 
+      />
     </div>
   );
 }

@@ -1,23 +1,67 @@
 import React, { useState, useEffect } from 'react';
-import { getGodownDetails } from '../services/api';
+import { getGodownDetails, updatePurchase, updateBulkPurchase } from '../services/api';
+import { useToast } from '../context/ToastContext';
+import { PurchaseModal } from './Modals';
+import { BulkPurchaseModal } from './InventoryModals';
 
 export default function GodownDetailsModal({ isOpen, onClose, godownId }) {
   const [details, setDetails] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [editingItem, setEditingItem] = useState(null);
+  const [isPurchaseModalOpen, setIsPurchaseModalOpen] = useState(false);
+  const [isBulkModalOpen, setIsBulkModalOpen] = useState(false);
+  const toast = useToast();
 
-  useEffect(() => {
-    if (isOpen && godownId) {
+  const loadDetails = () => {
+    if (godownId) {
       setIsLoading(true);
       getGodownDetails(godownId)
         .then(data => {
           setDetails(data);
         })
-        .catch(console.error)
+        .catch(err => {
+          console.error(err);
+          toast.error('Failed to load godown details');
+        })
         .finally(() => setIsLoading(false));
+    }
+  };
+
+  useEffect(() => {
+    if (isOpen && godownId) {
+      loadDetails();
     } else {
       setDetails(null);
     }
   }, [isOpen, godownId]);
+
+  const handleUpdateFarmerPurchase = (payload) => {
+    updatePurchase(payload.id, { farmerId: payload.farmerId, ...payload })
+      .then(() => {
+        toast.success('Crop purchase updated successfully!');
+        setIsPurchaseModalOpen(false);
+        setEditingItem(null);
+        loadDetails();
+      })
+      .catch(err => {
+        console.error(err);
+        toast.error(err.message || 'Failed to update crop purchase');
+      });
+  };
+
+  const handleUpdateBulkPurchase = (payload) => {
+    updateBulkPurchase(payload.id, payload)
+      .then(() => {
+        toast.success('Bulk purchase updated successfully!');
+        setIsBulkModalOpen(false);
+        setEditingItem(null);
+        loadDetails();
+      })
+      .catch(err => {
+        console.error(err);
+        toast.error(err.message || 'Failed to update bulk purchase');
+      });
+  };
 
   if (!isOpen) return null;
 
@@ -134,12 +178,13 @@ export default function GodownDetailsModal({ isOpen, onClose, godownId }) {
                         <th className="font-label-bold text-label-bold text-on-surface uppercase px-4 py-3 text-right">Weight (Kg)</th>
                         <th className="font-label-bold text-label-bold text-on-surface uppercase px-4 py-3 text-right">Bags</th>
                         <th className="font-label-bold text-label-bold text-on-surface uppercase px-4 py-3 text-right">Amount (₹)</th>
+                        <th className="font-label-bold text-label-bold text-on-surface uppercase px-4 py-3 text-right">Actions</th>
                       </tr>
                     </thead>
                     <tbody className="font-body-md text-body-md text-on-surface">
                       {(!details.purchases || details.purchases.length === 0) ? (
                         <tr>
-                          <td colSpan="7" className="px-6 py-8 text-center text-on-surface-variant">No purchases found in this godown.</td>
+                          <td colSpan="8" className="px-6 py-8 text-center text-on-surface-variant">No purchases found in this godown.</td>
                         </tr>
                       ) : details.purchases.map((p, idx) => (
                         <tr key={idx} className="border-b border-outline-variant hover:bg-surface-container-low transition-colors">
@@ -154,6 +199,23 @@ export default function GodownDetailsModal({ isOpen, onClose, godownId }) {
                           <td className="px-4 py-3 text-right font-number-md">{p.weight?.toFixed(2)}</td>
                           <td className="px-4 py-3 text-right font-number-md">{p.noOfBags?.toFixed(2) || '-'}</td>
                           <td className="px-4 py-3 text-right font-number-md font-semibold">₹{p.amountSpent?.toFixed(2) || '0.00'}</td>
+                          <td className="px-4 py-3 text-right whitespace-nowrap">
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setEditingItem(p);
+                                if (p.sourceType === 'BULK') {
+                                  setIsBulkModalOpen(true);
+                                } else {
+                                  setIsPurchaseModalOpen(true);
+                                }
+                              }}
+                              className="p-1 border border-outline hover:bg-surface-variant text-on-surface-variant rounded-none cursor-pointer transition-colors inline-flex items-center justify-center bg-surface"
+                              title="Edit Purchase"
+                            >
+                              <span className="material-symbols-outlined text-[18px]">edit</span>
+                            </button>
+                          </td>
                         </tr>
                       ))}
                     </tbody>
@@ -168,6 +230,30 @@ export default function GodownDetailsModal({ isOpen, onClose, godownId }) {
           )}
         </div>
       </div>
+
+      {isPurchaseModalOpen && (
+        <PurchaseModal
+          isOpen={isPurchaseModalOpen}
+          onClose={() => {
+            setIsPurchaseModalOpen(false);
+            setEditingItem(null);
+          }}
+          onSubmit={handleUpdateFarmerPurchase}
+          purchase={editingItem}
+          farmerName={editingItem?.supplierName || "Farmer"}
+        />
+      )}
+      {isBulkModalOpen && (
+        <BulkPurchaseModal
+          isOpen={isBulkModalOpen}
+          onClose={() => {
+            setIsBulkModalOpen(false);
+            setEditingItem(null);
+          }}
+          onSubmit={handleUpdateBulkPurchase}
+          bulkPurchase={editingItem}
+        />
+      )}
     </div>
   );
 }

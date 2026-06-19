@@ -4,6 +4,27 @@ const api = axios.create({
   baseURL: import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080/api',
 });
 
+// Request interceptor to attach JWT token
+api.interceptors.request.use(
+  (config) => {
+    const token = localStorage.getItem('token');
+    if (token) {
+      config.headers['Authorization'] = `Bearer ${token}`;
+    }
+    return config;
+  },
+  (error) => {
+    return Promise.reject(error);
+  }
+);
+
+let logoutHandler = null;
+
+export const registerLogoutHandler = (handler) => {
+  logoutHandler = handler;
+};
+
+// Response interceptor
 api.interceptors.response.use(
   (response) => {
     if (response.data && response.data.hasOwnProperty('status') && response.data.hasOwnProperty('data')) {
@@ -12,12 +33,34 @@ api.interceptors.response.use(
     return response;
   },
   (error) => {
-    if (error.response && error.response.data && error.response.data.hasOwnProperty('data')) {
-      error.response.data = error.response.data.data;
+    if (error.response && error.response.status === 401) {
+      if (logoutHandler) {
+        logoutHandler();
+      }
     }
-    return Promise.reject(error);
+    
+    // Extract the message from ApiErrorResponse or generic error payload
+    let errorMsg = 'An unexpected error occurred';
+    if (error.response && error.response.data) {
+      const data = error.response.data;
+      if (data.message) {
+        errorMsg = data.message;
+      } else if (data.data) {
+        errorMsg = data.data;
+      } else if (typeof data === 'string') {
+        errorMsg = data;
+      }
+    } else if (error.message) {
+      errorMsg = error.message;
+    }
+    
+    return Promise.reject(new Error(errorMsg));
   }
 );
+
+export const loginUser = (username, password) => {
+  return api.post('/auth/login', { username, password }).then((res) => res.data);
+};
 
 export const getFarmers = () => api.get('/farmers').then((res) => res.data);
 export const getFarmerById = (id) => api.get(`/farmers/${id}`).then((res) => res.data);
@@ -44,5 +87,17 @@ export const getGodownDetails = async (id) => {
     return response.data;
 };
 export const createGodown = (data) => api.post('/inventory/godowns', data).then((res) => res.data);
+export const updateGodown = (id, data) => api.put(`/inventory/godowns/${id}`, data).then((res) => res.data);
+export const deleteGodown = (id) => api.delete(`/inventory/godowns/${id}`).then((res) => res.data);
+
+export const updateFarmer = (id, data) => api.put(`/farmers/${id}`, data).then((res) => res.data);
+export const deleteFarmer = (id) => api.delete(`/farmers/${id}`).then((res) => res.data);
+
+export const deletePurchase = (id) => api.delete(`/transactions/purchase/${id}`).then((res) => res.data);
+export const deleteDebit = (id) => api.delete(`/transactions/debit/${id}`).then((res) => res.data);
+
+export const updatePurchase = (id, data) => api.put(`/transactions/purchase/${id}`, data).then((res) => res.data);
+export const updateDebit = (id, data) => api.put(`/transactions/debit/${id}`, data).then((res) => res.data);
+export const updateBulkPurchase = (id, data) => api.put(`/inventory/bulk-purchases/${id}`, data).then((res) => res.data);
 
 export default api;
