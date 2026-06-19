@@ -1,10 +1,12 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
-import { getFarmerHistory, logPurchase, logDebit, updateFarmer, deleteFarmer, deletePurchase, deleteDebit, updatePurchase, updateDebit } from '../services/api';
+import { getFarmerHistory, logPurchase, logDebit, updateFarmer, deleteFarmer, deletePurchase, deleteDebit, updatePurchase, updateDebit, scanReceipt } from '../services/api';
 import { PurchaseModal, DebitModal } from './Modals';
 import { useToast } from '../context/ToastContext';
 import EditFarmerModal from './EditFarmerModal';
 import ConfirmDeleteModal from './ConfirmDeleteModal';
+import SmartScanReviewModal from './SmartScanReviewModal';
+import imageCompression from 'browser-image-compression';
 
 export default function FarmerKhata() {
   const { id } = useParams();
@@ -18,6 +20,9 @@ export default function FarmerKhata() {
   const [editingPurchase, setEditingPurchase] = useState(null);
   const [editingDebit, setEditingDebit] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
+  const [isSmartScanOpen, setIsSmartScanOpen] = useState(false);
+  const [scannedData, setScannedData] = useState([]);
+  const [isScanning, setIsScanning] = useState(false);
   const toast = useToast();
 
   useEffect(() => {
@@ -35,6 +40,34 @@ export default function FarmerKhata() {
       console.error(err);
       toast.error('Failed to reload ledger history');
     });
+  };
+
+  const handleSmartScan = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    setIsScanning(true);
+    try {
+      const options = {
+        maxSizeMB: 1,
+        maxWidthOrHeight: 1920,
+        useWebWorker: true
+      };
+      const compressedFile = await imageCompression(file, options);
+      
+      const formData = new FormData();
+      formData.append('image', compressedFile, file.name);
+
+      const data = await scanReceipt(formData);
+      setScannedData(data);
+      setIsSmartScanOpen(true);
+    } catch (err) {
+      console.error(err);
+      toast.error('Failed to process image: ' + (err.message || 'Unknown error'));
+    } finally {
+      setIsScanning(false);
+      e.target.value = null;
+    }
   };
 
   const handlePurchase = (payload) => {
@@ -190,6 +223,18 @@ export default function FarmerKhata() {
             <span className="material-symbols-outlined">payments</span>
             Record Advance
           </button>
+          <label className={`flex-1 bg-secondary-container text-on-secondary-container font-label-bold text-label-bold h-touch-target-min flex items-center justify-center gap-2 hover:bg-secondary hover:text-on-secondary transition-colors cursor-pointer border-2 border-[#000000] shadow-[3px_3px_0px_0px_rgba(0,0,0,1)] ${isScanning ? 'opacity-50 pointer-events-none' : ''}`}>
+            <span className="material-symbols-outlined">{isScanning ? 'hourglass_empty' : 'document_scanner'}</span>
+            {isScanning ? 'Scanning...' : 'Smart Scan Receipt'}
+            <input 
+              type="file" 
+              accept="image/*" 
+              capture="environment" 
+              className="hidden" 
+              onChange={handleSmartScan}
+              disabled={isScanning}
+            />
+          </label>
         </div>
       </div>
 
@@ -303,6 +348,18 @@ export default function FarmerKhata() {
         onConfirm={handleDeleteTransaction} 
         title="Delete Transaction" 
         message={`Are you sure you want to delete this ${txToDelete?.type === 'PURCHASE' ? 'Crop Purchase' : 'Debit/Advance'} transaction? The farmer's net balance will be recalculated, and inventory adjustments will be applied permanently.`} 
+      />
+
+      <SmartScanReviewModal
+        isOpen={isSmartScanOpen}
+        onClose={() => setIsSmartScanOpen(false)}
+        scannedData={scannedData}
+        defaultFarmerId={id}
+        onSuccess={(mappedFarmerId) => {
+          if (mappedFarmerId === id) {
+            loadData();
+          }
+        }}
       />
     </div>
   );

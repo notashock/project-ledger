@@ -62,6 +62,12 @@ export const loginUser = (username, password) => {
   return api.post('/auth/login', { username, password }).then((res) => res.data);
 };
 
+export const scanReceipt = (formData) => api.post('/ai/scan-debit', formData, {
+    headers: {
+        'Content-Type': 'multipart/form-data'
+    }
+}).then((res) => res.data);
+
 export const getFarmers = () => api.get('/farmers').then((res) => res.data);
 export const getFarmerById = (id) => api.get(`/farmers/${id}`).then((res) => res.data);
 export const getFarmerHistory = (id, query = '') => api.get(`/farmers/${id}/history`, { params: { query } }).then((res) => res.data);
