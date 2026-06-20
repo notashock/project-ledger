@@ -124,21 +124,7 @@ public class GeminiVisionService {
                         // 1. Clean and normalize category
                         String cat = dto.getCategory();
                         if (cat != null) {
-                            cat = cat.trim();
-                            // If Gemini output it with OTHER(type) or OTHER - type, extract the inner type
-                            if (cat.toLowerCase().startsWith("other(") && cat.endsWith(")")) {
-                                cat = cat.substring(6, cat.length() - 1).trim();
-                            } else if (cat.toLowerCase().startsWith("other - ")) {
-                                cat = cat.substring(8).trim();
-                            } else if (cat.toLowerCase().startsWith("other:")) {
-                                cat = cat.substring(6).trim();
-                            } else if (cat.equalsIgnoreCase("seeds")) {
-                                cat = "SEEDS";
-                            } else if (cat.equalsIgnoreCase("pesticides")) {
-                                cat = "PESTICIDES";
-                            } else if (cat.equalsIgnoreCase("cash")) {
-                                cat = "CASH";
-                            }
+                            cat = cleanCategory(cat);
                             dto.setCategory(cat);
                         }
 
@@ -165,5 +151,42 @@ public class GeminiVisionService {
         }
         
         throw new GeminiIntegrationException("Failed to extract data from image: Received unexpected response status " + response.getStatusCode());
+    }
+
+    private String cleanCategory(String cat) {
+        if (cat == null) {
+            return null;
+        }
+        cat = cat.trim();
+        String lower = cat.toLowerCase();
+        
+        // Handle "other(...) " or "other (...) "
+        if (lower.startsWith("other") && lower.endsWith(")")) {
+            int openParen = cat.indexOf('(');
+            if (openParen != -1) {
+                return cat.substring(openParen + 1, cat.length() - 1).trim();
+            }
+        }
+        
+        // Handle "other - ...", "other-...", "other: ...", "other:..."
+        if (lower.startsWith("other")) {
+            String remainder = cat.substring(5).trim();
+            if (remainder.startsWith("-") || remainder.startsWith(":")) {
+                return remainder.substring(1).trim();
+            }
+        }
+        
+        // Normalize standard categories
+        if (cat.equalsIgnoreCase("seeds")) {
+            return "SEEDS";
+        }
+        if (cat.equalsIgnoreCase("pesticides")) {
+            return "PESTICIDES";
+        }
+        if (cat.equalsIgnoreCase("cash")) {
+            return "CASH";
+        }
+        
+        return cat;
     }
 }
