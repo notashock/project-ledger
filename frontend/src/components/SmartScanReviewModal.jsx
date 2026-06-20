@@ -52,11 +52,14 @@ export default function SmartScanReviewModal({ isOpen, onClose, scannedData, onS
     try {
       // Save each parsed debit
       for (const item of scannedItems) {
+        const catUpper = (item.category || '').trim().toUpperCase();
+        const isStandard = ['SEEDS', 'PESTICIDES', 'CASH'].includes(catUpper);
+        
         await logDebit({
           farmerId: selectedFarmerId,
           date: new Date().toISOString().split('T')[0],
-          category: item.category === 'SEEDS' || item.category === 'PESTICIDES' || item.category === 'CASH' ? item.category : 'OTHER',
-          otherCategorySpecify: item.category === 'SEEDS' || item.category === 'PESTICIDES' || item.category === 'CASH' ? '' : item.category,
+          category: isStandard ? catUpper : 'OTHER',
+          otherCategorySpecify: isStandard ? '' : (item.category || '').trim(),
           costAmount: item.costAmount,
           description: item.description
         });

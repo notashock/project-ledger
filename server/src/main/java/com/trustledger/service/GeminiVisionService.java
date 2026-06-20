@@ -49,7 +49,12 @@ public class GeminiVisionService {
         List<Map<String, Object>> parts = new ArrayList<>();
 
         Map<String, Object> textPart = new HashMap<>();
-        textPart.put("text", "Analyze this receipt. Extract the farmer's name, the materials provided, and the cost. Return ONLY a valid JSON array matching this exact schema: [{\"farmerName\": \"...\", \"category\": \"SEEDS/PESTICIDES/CASH/OTHER(specify the type)\", \"costAmount\": 100.50, \"description\": \"...\"}]. Do not include markdown formatting like ```json.");
+        textPart.put("text", "Analyze this receipt. Extract the farmer's name, the category, the cost, and any additional description.\n" +
+                "For the category, if the item matches SEEDS, PESTICIDES, or CASH, return that exact word (SEEDS, PESTICIDES, or CASH).\n" +
+                "If it does not fit these three, return only the specific name of the item or custom category (e.g., 'water', 'diesel', 'rent') as the category. " +
+                "Do NOT prefix it with 'OTHER' or 'OTHER(specify the type)'.\n" +
+                "The description must be empty (i.e., \"\") unless there is extra text/notes written on the receipt besides the item name and cost.\n" +
+                "Return ONLY a valid JSON array matching this exact schema: [{\"farmerName\": \"...\", \"category\": \"SEEDS/PESTICIDES/CASH/custom_category\", \"costAmount\": 100.50, \"description\": \"...\"}]. Do not include markdown formatting like ```json.");
         parts.add(textPart);
 
         Map<String, Object> inlineDataPart = new HashMap<>();
@@ -113,7 +118,45 @@ public class GeminiVisionService {
                 }
                 jsonText = jsonText.trim();
                 
-                return objectMapper.readValue(jsonText, new TypeReference<List<ExtractedDebitDto>>() {});
+                List<ExtractedDebitDto> dtos = objectMapper.readValue(jsonText, new TypeReference<List<ExtractedDebitDto>>() {});
+                if (dtos != null) {
+                    for (ExtractedDebitDto dto : dtos) {
+                        // 1. Clean and normalize category
+                        String cat = dto.getCategory();
+                        if (cat != null) {
+                            cat = cat.trim();
+                            // If Gemini output it with OTHER(type) or OTHER - type, extract the inner type
+                            if (cat.toLowerCase().startsWith("other(") && cat.endsWith(")")) {
+                                cat = cat.substring(6, cat.length() - 1).trim();
+                            } else if (cat.toLowerCase().startsWith("other - ")) {
+                                cat = cat.substring(8).trim();
+                            } else if (cat.toLowerCase().startsWith("other:")) {
+                                cat = cat.substring(6).trim();
+                            } else if (cat.equalsIgnoreCase("seeds")) {
+                                cat = "SEEDS";
+                            } else if (cat.equalsIgnoreCase("pesticides")) {
+                                cat = "PESTICIDES";
+                            } else if (cat.equalsIgnoreCase("cash")) {
+                                cat = "CASH";
+                            }
+                            dto.setCategory(cat);
+                        }
+
+                        // 2. Clean and normalize description
+                        String desc = dto.getDescription();
+                        if (desc != null) {
+                            desc = desc.trim();
+                            // If description duplicates category, clear it
+                            if (cat != null && desc.equalsIgnoreCase(cat)) {
+                                desc = "";
+                            }
+                            dto.setDescription(desc);
+                        } else {
+                            dto.setDescription("");
+                        }
+                    }
+                }
+                return dtos;
             } catch (ReceiptParsingException e) {
                 throw e;
             } catch (Exception e) {
