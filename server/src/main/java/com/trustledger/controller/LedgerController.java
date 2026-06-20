@@ -4,6 +4,7 @@ import com.trustledger.dto.ApiResponseDto;
 import com.trustledger.dto.DebitRequestDto;
 import com.trustledger.dto.PurchaseRequestDto;
 import com.trustledger.dto.TransactionHistoryDto;
+import com.trustledger.dto.TransactionItemDto;
 import com.trustledger.model.CropPurchase;
 import com.trustledger.model.Farmer;
 import com.trustledger.model.LedgerDebit;
@@ -151,6 +152,17 @@ public class LedgerController {
                 202,
                 "Ledger debit updated successfully",
                 ledgerService.updateLedgerDebit(id, debitRequest)
+        );
+        return new ResponseEntity<>(response, HttpStatus.ACCEPTED);
+    }
+
+    @GetMapping("/transactions/recent")
+    public ResponseEntity<ApiResponseDto<List<TransactionItemDto>>> getRecentTransactions(
+            @RequestParam(value = "limit", defaultValue = "10") int limit) {
+        ApiResponseDto<List<TransactionItemDto>> response = ApiResponseDto.success(
+                202,
+                "Recent transactions retrieved successfully",
+                ledgerService.getRecentTransactions(limit)
         );
         return new ResponseEntity<>(response, HttpStatus.ACCEPTED);
     }

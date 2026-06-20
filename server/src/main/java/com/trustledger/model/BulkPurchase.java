@@ -48,4 +48,8 @@ public class BulkPurchase {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "godown_id", nullable = false)
     private Godown godown;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "user_id")
+    private AppUser user;
 }

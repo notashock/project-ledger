@@ -29,6 +29,8 @@ import java.math.RoundingMode;
 import java.util.stream.Collectors;
 import com.trustledger.repository.CropPurchaseRepository;
 import com.trustledger.service.MarketRateService;
+import com.trustledger.security.AuthUtil;
+import com.trustledger.model.AppUser;
 
 @Service
 @RequiredArgsConstructor
@@ -40,10 +42,12 @@ public class InventoryService {
     private final CropPurchaseRepository cropPurchaseRepository;
     private final MarketRateService marketRateService;
     private final FarmerRepository farmerRepository;
+    private final AuthUtil authUtil;
 
     @Transactional
     public GodownDto addGodown(GodownDto request) {
         Godown godown = new Godown();
+        godown.setUser(authUtil.getCurrentUser());
         godown.setName(request.getName());
         godown.setLocation(request.getLocation());
         Godown saved = godownRepository.save(godown);
@@ -54,7 +58,7 @@ public class InventoryService {
 
     @Transactional(readOnly = true)
     public List<GodownDto> getAllGodowns() {
-        return godownRepository.findAll().stream().map(g -> {
+        return godownRepository.findByUser(authUtil.getCurrentUser()).stream().map(g -> {
             GodownDto dto = new GodownDto();
             dto.setId(g.getId());
             dto.setName(g.getName());
@@ -70,6 +74,7 @@ public class InventoryService {
         }
 
         InventoryLog log = new InventoryLog();
+        log.setUser(authUtil.getCurrentUser());
         log.setGodown(purchase.getGodown());
         log.setDate(purchase.getDate());
         log.setSourceType(SourceType.FARMER_PURCHASE);
@@ -84,10 +89,12 @@ public class InventoryService {
 
     @Transactional
     public BulkPurchaseDto logBulkPurchase(BulkPurchaseDto dto) {
-        Godown godown = godownRepository.findById(dto.getGodownId())
+        AppUser currentUser = authUtil.getCurrentUser();
+        Godown godown = godownRepository.findByIdAndUser(dto.getGodownId(), currentUser)
                 .orElseThrow(() -> new GodownNotFoundException("Godown with ID " + dto.getGodownId() + " not found"));
 
         BulkPurchase purchase = new BulkPurchase();
+        purchase.setUser(currentUser);
         purchase.setSupplierName(dto.getSupplierName());
         purchase.setDate(dto.getDate() != null ? dto.getDate() : LocalDate.now());
         purchase.setCropType(dto.getCropType());
@@ -112,6 +119,7 @@ public class InventoryService {
         BulkPurchase saved = bulkPurchaseRepository.save(purchase);
         
         InventoryLog log = new InventoryLog();
+        log.setUser(currentUser);
         log.setGodown(godown);
         log.setDate(saved.getDate());
         log.setSourceType(SourceType.BULK_BUY);
@@ -130,12 +138,13 @@ public class InventoryService {
 
     @Transactional(readOnly = true)
     public List<InventorySummaryDto> getInventorySummary() {
-        return inventoryLogRepository.getInventorySummary();
+        return inventoryLogRepository.getInventorySummaryAndUser(authUtil.getCurrentUser());
     }
 
     @Transactional(readOnly = true)
     public List<InventoryTraceDto> getInventoryTrace(CropType cropType) {
-        List<InventoryLog> logs = inventoryLogRepository.findByCropTypeOrderByDateDesc(cropType);
+        AppUser currentUser = authUtil.getCurrentUser();
+        List<InventoryLog> logs = inventoryLogRepository.findByCropTypeAndUserOrderByDateDesc(cropType, currentUser);
         
         return logs.stream().map(log -> InventoryTraceDto.builder()
                 .id(log.getId())
@@ -151,7 +160,8 @@ public class InventoryService {
 
     @Transactional(readOnly = true)
     public GodownDetailsDto getGodownDetails(UUID godownId) {
-        Godown godown = godownRepository.findById(godownId)
+        AppUser currentUser = authUtil.getCurrentUser();
+        Godown godown = godownRepository.findByIdAndUser(godownId, currentUser)
                 .orElseThrow(() -> new GodownNotFoundException("Godown with ID " + godownId + " not found"));
 
         GodownDto godownDto = new GodownDto();
@@ -159,8 +169,8 @@ public class InventoryService {
         godownDto.setName(godown.getName());
         godownDto.setLocation(godown.getLocation());
 
-        List<CropPurchase> cropPurchases = cropPurchaseRepository.findByGodownIdOrderByDateDesc(godownId);
-        List<BulkPurchase> bulkPurchases = bulkPurchaseRepository.findByGodownIdOrderByDateDesc(godownId);
+        List<CropPurchase> cropPurchases = cropPurchaseRepository.findByGodownIdAndUserOrderByDateDesc(godownId, currentUser);
+        List<BulkPurchase> bulkPurchases = bulkPurchaseRepository.findByGodownIdAndUserOrderByDateDesc(godownId, currentUser);
 
         List<PurchaseItemDto> purchases = new ArrayList<>();
         Map<String, CropStockDetailDto> cropStocks = new HashMap<>();
@@ -291,7 +301,8 @@ public class InventoryService {
 
     @Transactional
     public GodownDto updateGodown(UUID id, GodownDto updatedGodown) {
-        Godown existing = godownRepository.findById(id)
+        AppUser currentUser = authUtil.getCurrentUser();
+        Godown existing = godownRepository.findByIdAndUser(id, currentUser)
                 .orElseThrow(() -> new GodownNotFoundException("Godown with ID " + id + " not found"));
         existing.setName(updatedGodown.getName());
         existing.setLocation(updatedGodown.getLocation());
@@ -302,21 +313,22 @@ public class InventoryService {
 
     @Transactional
     public void deleteGodown(UUID id) {
-        Godown godown = godownRepository.findById(id)
+        AppUser currentUser = authUtil.getCurrentUser();
+        Godown godown = godownRepository.findByIdAndUser(id, currentUser)
                 .orElseThrow(() -> new GodownNotFoundException("Godown with ID " + id + " not found"));
 
         // Check if godown currently holds active inventory
-        BigDecimal sum = inventoryLogRepository.sumQuantityByGodownId(id);
+        BigDecimal sum = inventoryLogRepository.sumQuantityByGodownIdAndUser(id, currentUser);
         if (sum != null && sum.compareTo(BigDecimal.ZERO) > 0) {
             throw new IllegalStateException("Cannot delete Godown holding active inventory");
         }
 
         // Delete associated inventory logs
-        List<InventoryLog> logs = inventoryLogRepository.findByGodownId(id);
+        List<InventoryLog> logs = inventoryLogRepository.findByGodownIdAndUser(id, currentUser);
         inventoryLogRepository.deleteAll(logs);
 
         // Delete associated crop purchases (and update farmer balances)
-        List<CropPurchase> purchases = cropPurchaseRepository.findByGodownIdOrderByDateDesc(id);
+        List<CropPurchase> purchases = cropPurchaseRepository.findByGodownIdAndUserOrderByDateDesc(id, currentUser);
         for (CropPurchase purchase : purchases) {
             Farmer farmer = purchase.getFarmer();
             if (farmer != null) {
@@ -327,7 +339,7 @@ public class InventoryService {
         cropPurchaseRepository.deleteAll(purchases);
 
         // Delete associated bulk purchases
-        List<BulkPurchase> bulkPurchases = bulkPurchaseRepository.findByGodownIdOrderByDateDesc(id);
+        List<BulkPurchase> bulkPurchases = bulkPurchaseRepository.findByGodownIdAndUserOrderByDateDesc(id, currentUser);
         bulkPurchaseRepository.deleteAll(bulkPurchases);
 
         // Delete the godown
@@ -336,10 +348,11 @@ public class InventoryService {
 
     @Transactional
     public BulkPurchaseDto updateBulkPurchase(UUID id, BulkPurchaseDto dto) {
-        BulkPurchase purchase = bulkPurchaseRepository.findById(id)
+        AppUser currentUser = authUtil.getCurrentUser();
+        BulkPurchase purchase = bulkPurchaseRepository.findByIdAndUser(id, currentUser)
                 .orElseThrow(() -> new IllegalArgumentException("Bulk purchase with ID " + id + " not found"));
 
-        Godown godown = godownRepository.findById(dto.getGodownId())
+        Godown godown = godownRepository.findByIdAndUser(dto.getGodownId(), currentUser)
                 .orElseThrow(() -> new GodownNotFoundException("Godown with ID " + dto.getGodownId() + " not found"));
 
         purchase.setSupplierName(dto.getSupplierName());

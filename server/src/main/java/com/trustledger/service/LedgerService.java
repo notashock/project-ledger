@@ -18,7 +18,9 @@ import com.trustledger.repository.FarmerRepository;
 import com.trustledger.repository.LedgerDebitRepository;
 import com.trustledger.repository.GodownRepository;
 import com.trustledger.repository.InventoryLogRepository;
+import com.trustledger.security.AuthUtil;
 import com.trustledger.model.Godown;
+import com.trustledger.model.AppUser;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -44,38 +46,43 @@ public class LedgerService {
     private final GodownRepository godownRepository;
     private final InventoryService inventoryService;
     private final InventoryLogRepository inventoryLogRepository;
+    private final AuthUtil authUtil;
 
     public List<Farmer> getAllFarmers() {
-        return farmerRepository.findAll();
+        return farmerRepository.findByUser(authUtil.getCurrentUser());
     }
 
     public Farmer getFarmerById(UUID id) {
-        return farmerRepository.findById(id)
+        return farmerRepository.findByIdAndUser(id, authUtil.getCurrentUser())
                 .orElseThrow(() -> new FarmerNotFoundException("Farmer with ID " + id + " not found"));
     }
 
     @Transactional
     public Farmer createFarmer(Farmer farmer) {
-        if (farmerRepository.findByNameAndVillage(farmer.getName(), farmer.getVillage()).isPresent()) {
+        AppUser currentUser = authUtil.getCurrentUser();
+        if (farmerRepository.findByNameAndVillageAndUser(farmer.getName(), farmer.getVillage(), currentUser).isPresent()) {
             throw new DuplicateResourceException("Farmer '" + farmer.getName() + "' is already registered in village '" + farmer.getVillage() + "'");
         }
         if (farmer.getNetBalance() == null) {
             farmer.setNetBalance(BigDecimal.ZERO);
         }
+        farmer.setUser(currentUser);
         return farmerRepository.save(farmer);
     }
 
     @Transactional
     public CropPurchase logPurchase(PurchaseRequestDto request) {
+        AppUser currentUser = authUtil.getCurrentUser();
         if (request.getGodownId() == null) {
             throw new IllegalArgumentException("Godown ID is required");
         }
-        Godown godown = godownRepository.findById(request.getGodownId())
+        Godown godown = godownRepository.findByIdAndUser(request.getGodownId(), currentUser)
                 .orElseThrow(() -> new GodownNotFoundException("Godown with ID " + request.getGodownId() + " not found"));
 
         Farmer farmer = getFarmerById(request.getFarmerId());
 
         CropPurchase purchase = new CropPurchase();
+        purchase.setUser(currentUser);
         purchase.setFarmer(farmer);
         purchase.setGodown(godown);
         purchase.setDate(request.getDate() != null ? request.getDate() : LocalDate.now());
@@ -86,9 +93,9 @@ public class LedgerService {
 
         BigDecimal bagWeight = request.getBagWeight();
         if (bagWeight == null || bagWeight.compareTo(BigDecimal.ZERO) <= 0) {
-            bagWeight = dailyRateRepository.findByCropTypeAndDate(request.getCropType(), purchase.getDate())
+            bagWeight = dailyRateRepository.findByCropTypeAndDateAndUser(request.getCropType(), purchase.getDate(), currentUser)
                 .map(DailyRate::getBagWeight)
-                .orElseGet(() -> dailyRateRepository.findTopByCropTypeOrderByDateDesc(request.getCropType())
+                .orElseGet(() -> dailyRateRepository.findTopByCropTypeAndUserOrderByDateDesc(request.getCropType(), currentUser)
                     .map(DailyRate::getBagWeight)
                     .orElse(BigDecimal.valueOf(101.0)));
         }
@@ -143,7 +150,7 @@ public class LedgerService {
         BigDecimal rateApplied = savedPurchase.getRateApplied();
 
         if (crop != null && rateApplied != null) {
-            java.util.Optional<DailyRate> rateOpt = dailyRateRepository.findByCropTypeAndDate(crop, purchaseDate);
+            java.util.Optional<DailyRate> rateOpt = dailyRateRepository.findByCropTypeAndDateAndUser(crop, purchaseDate, currentUser);
             boolean shouldUpdate = true;
             if (request.getUpdateDailyRate() != null) {
                 shouldUpdate = request.getUpdateDailyRate();
@@ -157,6 +164,7 @@ public class LedgerService {
                     dailyRateRepository.save(existingRate);
                 } else {
                     DailyRate newRate = new DailyRate();
+                    newRate.setUser(currentUser);
                     newRate.setCropType(crop);
                     newRate.setDate(purchaseDate);
                     newRate.setBuyRate(rateApplied);
@@ -173,9 +181,11 @@ public class LedgerService {
 
     @Transactional
     public LedgerDebit logDebit(DebitRequestDto request) {
+        AppUser currentUser = authUtil.getCurrentUser();
         Farmer farmer = getFarmerById(request.getFarmerId());
 
         LedgerDebit debit = new LedgerDebit();
+        debit.setUser(currentUser);
         debit.setFarmer(farmer);
         debit.setDate(request.getDate() != null ? request.getDate() : LocalDate.now());
         debit.setCategory(request.getCategory());
@@ -193,10 +203,11 @@ public class LedgerService {
 
     @Transactional(readOnly = true)
     public TransactionHistoryDto getFarmerTransactionHistory(UUID farmerId, String query) {
+        AppUser currentUser = authUtil.getCurrentUser();
         Farmer farmer = getFarmerById(farmerId);
 
-        List<CropPurchase> purchases = cropPurchaseRepository.findByFarmerIdOrderByDateDesc(farmerId);
-        List<LedgerDebit> debits = ledgerDebitRepository.findByFarmerIdOrderByDateDesc(farmerId);
+        List<CropPurchase> purchases = cropPurchaseRepository.findByFarmerIdAndUserOrderByDateDesc(farmerId, currentUser);
+        List<LedgerDebit> debits = ledgerDebitRepository.findByFarmerIdAndUserOrderByDateDesc(farmerId, currentUser);
 
         List<TransactionItemDto> items = new ArrayList<>();
 
@@ -286,10 +297,11 @@ public class LedgerService {
 
     @Transactional
     public void deleteFarmer(UUID id) {
+        AppUser currentUser = authUtil.getCurrentUser();
         Farmer farmer = getFarmerById(id);
 
         // Delete associated inventory logs for all crop purchases of this farmer
-        List<CropPurchase> purchases = cropPurchaseRepository.findByFarmerIdOrderByDateDesc(id);
+        List<CropPurchase> purchases = cropPurchaseRepository.findByFarmerIdAndUserOrderByDateDesc(id, currentUser);
         for (CropPurchase purchase : purchases) {
             inventoryLogRepository.deleteByReferenceId(purchase.getId());
         }
@@ -298,7 +310,7 @@ public class LedgerService {
         cropPurchaseRepository.deleteAll(purchases);
 
         // Delete associated ledger debits
-        List<LedgerDebit> debits = ledgerDebitRepository.findByFarmerIdOrderByDateDesc(id);
+        List<LedgerDebit> debits = ledgerDebitRepository.findByFarmerIdAndUserOrderByDateDesc(id, currentUser);
         ledgerDebitRepository.deleteAll(debits);
 
         // Delete the farmer
@@ -307,7 +319,8 @@ public class LedgerService {
 
     @Transactional
     public void deleteCropPurchase(UUID id) {
-        CropPurchase purchase = cropPurchaseRepository.findById(id)
+        AppUser currentUser = authUtil.getCurrentUser();
+        CropPurchase purchase = cropPurchaseRepository.findByIdAndUser(id, currentUser)
                 .orElseThrow(() -> new IllegalArgumentException("Crop purchase with ID " + id + " not found"));
 
         Farmer farmer = purchase.getFarmer();
@@ -319,6 +332,7 @@ public class LedgerService {
 
         // Insert a reversing InventoryLog entry (negative quantity)
         InventoryLog reverseLog = new InventoryLog();
+        reverseLog.setUser(currentUser);
         reverseLog.setGodown(purchase.getGodown());
         reverseLog.setDate(LocalDate.now());
         reverseLog.setSourceType(SourceType.FARMER_PURCHASE);
@@ -338,7 +352,8 @@ public class LedgerService {
 
     @Transactional
     public void deleteLedgerDebit(UUID id) {
-        LedgerDebit debit = ledgerDebitRepository.findById(id)
+        AppUser currentUser = authUtil.getCurrentUser();
+        LedgerDebit debit = ledgerDebitRepository.findByIdAndUser(id, currentUser)
                 .orElseThrow(() -> new IllegalArgumentException("Debit record with ID " + id + " not found"));
 
         Farmer farmer = debit.getFarmer();
@@ -353,7 +368,8 @@ public class LedgerService {
 
     @Transactional
     public CropPurchase updateCropPurchase(UUID id, PurchaseRequestDto request) {
-        CropPurchase purchase = cropPurchaseRepository.findById(id)
+        AppUser currentUser = authUtil.getCurrentUser();
+        CropPurchase purchase = cropPurchaseRepository.findByIdAndUser(id, currentUser)
                 .orElseThrow(() -> new IllegalArgumentException("Crop purchase with ID " + id + " not found"));
 
         Farmer oldFarmer = purchase.getFarmer();
@@ -366,9 +382,8 @@ public class LedgerService {
         }
 
         // 2. Fetch new farmer and godown
-        Farmer newFarmer = farmerRepository.findById(request.getFarmerId())
-                .orElseThrow(() -> new FarmerNotFoundException("Farmer with ID " + request.getFarmerId() + " not found"));
-        Godown newGodown = godownRepository.findById(request.getGodownId())
+        Farmer newFarmer = getFarmerById(request.getFarmerId());
+        Godown newGodown = godownRepository.findByIdAndUser(request.getGodownId(), currentUser)
                 .orElseThrow(() -> new GodownNotFoundException("Godown with ID " + request.getGodownId() + " not found"));
 
         purchase.setFarmer(newFarmer);
@@ -381,9 +396,9 @@ public class LedgerService {
 
         BigDecimal bagWeight = request.getBagWeight();
         if (bagWeight == null || bagWeight.compareTo(BigDecimal.ZERO) <= 0) {
-            bagWeight = dailyRateRepository.findByCropTypeAndDate(request.getCropType(), purchase.getDate())
+            bagWeight = dailyRateRepository.findByCropTypeAndDateAndUser(request.getCropType(), purchase.getDate(), currentUser)
                 .map(DailyRate::getBagWeight)
-                .orElseGet(() -> dailyRateRepository.findTopByCropTypeOrderByDateDesc(request.getCropType())
+                .orElseGet(() -> dailyRateRepository.findTopByCropTypeAndUserOrderByDateDesc(request.getCropType(), currentUser)
                     .map(DailyRate::getBagWeight)
                     .orElse(BigDecimal.valueOf(101.0)));
         }
@@ -451,7 +466,8 @@ public class LedgerService {
 
     @Transactional
     public LedgerDebit updateLedgerDebit(UUID id, DebitRequestDto request) {
-        LedgerDebit debit = ledgerDebitRepository.findById(id)
+        AppUser currentUser = authUtil.getCurrentUser();
+        LedgerDebit debit = ledgerDebitRepository.findByIdAndUser(id, currentUser)
                 .orElseThrow(() -> new IllegalArgumentException("Debit record with ID " + id + " not found"));
 
         Farmer oldFarmer = debit.getFarmer();
@@ -464,8 +480,7 @@ public class LedgerService {
         }
 
         // 2. Fetch new farmer and update fields
-        Farmer newFarmer = farmerRepository.findById(request.getFarmerId())
-                .orElseThrow(() -> new FarmerNotFoundException("Farmer with ID " + request.getFarmerId() + " not found"));
+        Farmer newFarmer = getFarmerById(request.getFarmerId());
 
         debit.setFarmer(newFarmer);
         debit.setDate(request.getDate() != null ? request.getDate() : LocalDate.now());
@@ -479,5 +494,74 @@ public class LedgerService {
         farmerRepository.save(newFarmer);
 
         return ledgerDebitRepository.save(debit);
+    }
+
+    public List<TransactionItemDto> getRecentTransactions(int limit) {
+        AppUser currentUser = authUtil.getCurrentUser();
+        List<CropPurchase> purchases = cropPurchaseRepository.findByUser(currentUser);
+        List<LedgerDebit> debits = ledgerDebitRepository.findByUser(currentUser);
+
+        List<TransactionItemDto> items = new ArrayList<>();
+
+        for (CropPurchase p : purchases) {
+            String remarksText = (p.getRemarks() != null && !p.getRemarks().trim().isEmpty()) ? " (" + p.getRemarks() + ")" : "";
+            String weightDesc;
+            if (p.getNoOfBags() != null && p.getBagWeight() != null) {
+                BigDecimal roundedBags = p.getNoOfBags().setScale(2, java.math.RoundingMode.HALF_UP);
+                weightDesc = roundedBags + " bags (" + p.getWeight() + " kg)";
+            } else {
+                weightDesc = p.getWeight() + " kg";
+            }
+
+            String machineCostDesc = "";
+            if (p.getMachineCost() != null && p.getMachineCost().compareTo(BigDecimal.ZERO) > 0) {
+                machineCostDesc = " [Machine Cost: ₹" + p.getMachineCost().setScale(2, java.math.RoundingMode.HALF_UP) + "]";
+            }
+
+            items.add(TransactionItemDto.builder()
+                    .id(p.getId())
+                    .date(p.getDate())
+                    .type("PURCHASE")
+                    .description("Bought " + (p.getCropType() != null ? p.getCropType().getValue() : "") + " - " + weightDesc + machineCostDesc + remarksText)
+                    .amount(p.getTotalValue())
+                    .sign("+")
+                    .cropType(p.getCropType() != null ? p.getCropType().getValue() : null)
+                    .weight(p.getWeight())
+                    .rateApplied(p.getRateApplied())
+                    .bagWeight(p.getBagWeight())
+                    .noOfBags(p.getNoOfBags())
+                    .machineCost(p.getMachineCost())
+                    .godownId(p.getGodown() != null ? p.getGodown().getId() : null)
+                    .remarks(p.getRemarks())
+                    .farmerName(p.getFarmer() != null ? p.getFarmer().getName() : "N/A")
+                    .build());
+        }
+
+        for (LedgerDebit d : debits) {
+            String categoryText = d.getCategory().name();
+            if (d.getCategory() == com.trustledger.model.enums.DebitCategory.OTHER && d.getOtherCategorySpecify() != null && !d.getOtherCategorySpecify().trim().isEmpty()) {
+                categoryText = categoryText + " (" + d.getOtherCategorySpecify() + ")";
+            }
+            items.add(TransactionItemDto.builder()
+                    .id(d.getId())
+                    .date(d.getDate())
+                    .type("DEBIT")
+                    .description(categoryText + " - " + (d.getDescription() != null ? d.getDescription() : ""))
+                    .amount(d.getCostAmount())
+                    .sign("-")
+                    .category(d.getCategory() != null ? d.getCategory().name() : null)
+                    .rawDescription(d.getDescription())
+                    .otherCategorySpecify(d.getOtherCategorySpecify())
+                    .farmerName(d.getFarmer() != null ? d.getFarmer().getName() : "N/A")
+                    .build());
+        }
+
+        // Sort descending by date
+        items.sort(Comparator.comparing(TransactionItemDto::getDate).reversed());
+
+        if (items.size() > limit) {
+            return items.subList(0, limit);
+        }
+        return items;
     }
 }

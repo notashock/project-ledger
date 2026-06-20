@@ -31,4 +31,7 @@ public class TransactionItemDto {
     private String category;
     private String rawDescription;
     private String otherCategorySpecify;
+
+    // Farmer info (for global listing)
+    private String farmerName;
 }

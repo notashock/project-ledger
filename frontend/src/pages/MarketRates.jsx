@@ -16,11 +16,11 @@ export default function MarketRates() {
 
   useEffect(() => {
     getMarketRates().then((data) => {
-      const riceVal = data.rice?.buyRate?.toString() || '';
-      const maizeVal = data.maize?.buyRate?.toString() || '';
+      const riceVal = data?.rice?.buyRate?.toString() || '';
+      const maizeVal = data?.maize?.buyRate?.toString() || '';
       setRates({
-        rice: { buyRate: riceVal, bagWeight: data.rice?.bagWeight?.toString() || '101' },
-        maize: { buyRate: maizeVal, bagWeight: data.maize?.bagWeight?.toString() || '101' }
+        rice: { buyRate: riceVal, bagWeight: data?.rice?.bagWeight?.toString() || '101' },
+        maize: { buyRate: maizeVal, bagWeight: data?.maize?.bagWeight?.toString() || '101' }
       });
       setInitialRates({
         rice: riceVal,
@@ -75,22 +75,30 @@ export default function MarketRates() {
   const cropHistory = history[selectedCrop] || [];
   const currentPrice = parseFloat(rates[selectedCrop]?.buyRate || (selectedCrop === 'rice' ? 2450 : 1850));
 
-  // Generate the last 7 calendar dates up to today
-  const todayDate = new Date();
+  // Local date formatter to prevent timezone shifts (e.g. UTC date mismatch)
+  const formatLocalDate = (date) => {
+    const yyyy = date.getFullYear();
+    const mm = String(date.getMonth() + 1).padStart(2, '0');
+    const dd = String(date.getDate()).padStart(2, '0');
+    return `${yyyy}-${mm}-${dd}`;
+  };
+
+  // Generate the last 7 calendar dates up to today in local timezone format
   const calendarDates = [];
   for (let i = 0; i < 7; i++) {
     const d = new Date();
-    d.setDate(todayDate.getDate() - (6 - i));
-    calendarDates.push(d.toISOString().split('T')[0]);
+    d.setDate(d.getDate() - (6 - i));
+    calendarDates.push(formatLocalDate(d));
   }
 
-  // Format a date string to Mon, Tue, etc. or "Today"
+  // Format a date string to Mon, Tue, etc. or "Today" using local parsing
   const formatDateLabel = (dateStr) => {
     if (!dateStr) return '';
-    const todayStr = new Date().toISOString().split('T')[0];
+    const todayStr = formatLocalDate(new Date());
     if (dateStr === todayStr) return 'Today';
     try {
-      const date = new Date(dateStr);
+      const parts = dateStr.split('-');
+      const date = new Date(parts[0], parts[1] - 1, parts[2]);
       return date.toLocaleDateString('en-US', { weekday: 'short' });
     } catch (e) {
       return dateStr;
@@ -209,25 +217,25 @@ export default function MarketRates() {
     <div className="p-container-margin h-full flex flex-col xl:flex-row gap-section-gap w-full max-w-[1400px] mx-auto">
       {/* Left Pane: Update Rates Form */}
       <section className="flex-1 min-w-[320px] xl:max-w-[500px]">
-        <header className="mb-8 border-b-2 border-[#000000] pb-4">
-          <h1 className="font-display-lg text-display-lg-mobile md:text-display-lg text-on-surface">Daily Rates</h1>
-          <p className="font-body-lg text-body-lg text-on-surface-variant mt-2">Update today's market rates for key commodities.</p>
+        <header className="mb-6 border-b-2 border-[#000000] pb-3">
+          <h3 className="font-headline-md text-headline-md text-on-surface">Daily Rates</h3>
+          <p className="font-body-md text-body-md text-on-surface-variant mt-1">Update today's market rates for key commodities.</p>
         </header>
-        <form className="space-y-6 bg-surface-container-lowest p-6 border-2 border-[#000000]" onSubmit={(e) => e.preventDefault()}>
+        <form className="space-y-6 bg-surface-container-lowest p-6 border-2 border-[#000000] rounded" onSubmit={(e) => e.preventDefault()}>
           {/* Search/Date Area */}
           <div className="relative mb-8">
             <span className="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-on-surface-variant">search</span>
-            <input className="w-full h-[64px] pl-12 pr-4 bg-transparent border-2 border-outline-variant focus:border-[#000000] focus:ring-0 font-body-lg text-body-lg text-on-surface transition-colors" placeholder="Search commodity..." type="text"/>
+            <input className="w-full h-[64px] pl-12 pr-4 bg-transparent border-2 border-outline-variant focus:border-[#000000] focus:ring-0 font-body-lg text-body-lg text-on-surface transition-colors rounded" placeholder="Search commodity..." type="text"/>
           </div>
           <div className="grid grid-cols-1 gap-6">
             {/* Rice */}
-            <div className="flex flex-col gap-2 border-2 border-[#000000] p-4 bg-surface">
+            <div className="flex flex-col gap-2 border-2 border-[#000000] p-4 bg-surface rounded">
               <span className="font-label-bold text-label-bold text-on-surface">Rice (Basmati 1121)</span>
               <div className="grid grid-cols-2 gap-4">
                 <div className="flex flex-col gap-1">
                   <label className="text-xs font-semibold text-on-surface-variant">Rate / Bag (₹)</label>
                   <input 
-                    className="h-10 px-3 bg-transparent border border-outline text-on-surface text-sm focus:border-[#000000] focus:border-2 focus:ring-0 outline-none transition-all" 
+                    className="h-10 px-3 bg-transparent border border-outline text-on-surface text-sm focus:border-[#000000] focus:border-2 focus:ring-0 outline-none transition-all rounded" 
                     type="number" 
                     value={rates.rice.buyRate}
                     onChange={(e) => handleRateChange('rice', 'buyRate', e.target.value)}
@@ -236,7 +244,7 @@ export default function MarketRates() {
                 <div className="flex flex-col gap-1">
                   <label className="text-xs font-semibold text-on-surface-variant">Bag Weight (Kg)</label>
                   <input 
-                    className="h-10 px-3 bg-transparent border border-outline text-on-surface text-sm focus:border-[#000000] focus:border-2 focus:ring-0 outline-none transition-all" 
+                    className="h-10 px-3 bg-transparent border border-outline text-on-surface text-sm focus:border-[#000000] focus:border-2 focus:ring-0 outline-none transition-all rounded" 
                     type="number" 
                     value={rates.rice.bagWeight}
                     onChange={(e) => handleRateChange('rice', 'bagWeight', e.target.value)}
@@ -245,13 +253,13 @@ export default function MarketRates() {
               </div>
             </div>
             {/* Maize */}
-            <div className="flex flex-col gap-2 border-2 border-[#000000] p-4 bg-surface">
+            <div className="flex flex-col gap-2 border-2 border-[#000000] p-4 bg-surface rounded">
               <span className="font-label-bold text-label-bold text-on-surface">Maize (Corn)</span>
               <div className="grid grid-cols-2 gap-4">
                 <div className="flex flex-col gap-1">
                   <label className="text-xs font-semibold text-on-surface-variant">Rate / Bag (₹)</label>
                   <input 
-                    className="h-10 px-3 bg-transparent border border-outline text-on-surface text-sm focus:border-[#000000] focus:border-2 focus:ring-0 outline-none transition-all" 
+                    className="h-10 px-3 bg-transparent border border-outline text-on-surface text-sm focus:border-[#000000] focus:border-2 focus:ring-0 outline-none transition-all rounded" 
                     type="number" 
                     value={rates.maize.buyRate}
                     onChange={(e) => handleRateChange('maize', 'buyRate', e.target.value)}
@@ -260,7 +268,7 @@ export default function MarketRates() {
                 <div className="flex flex-col gap-1">
                   <label className="text-xs font-semibold text-on-surface-variant">Bag Weight (Kg)</label>
                   <input 
-                    className="h-10 px-3 bg-transparent border border-outline text-on-surface text-sm focus:border-[#000000] focus:border-2 focus:ring-0 outline-none transition-all" 
+                    className="h-10 px-3 bg-transparent border border-outline text-on-surface text-sm focus:border-[#000000] focus:border-2 focus:ring-0 outline-none transition-all rounded" 
                     type="number" 
                     value={rates.maize.bagWeight}
                     onChange={(e) => handleRateChange('maize', 'bagWeight', e.target.value)}
@@ -271,14 +279,14 @@ export default function MarketRates() {
           </div>
           <div className="pt-6 border-t-2 border-[#000000] flex gap-4">
             <button 
-              className="flex-1 h-touch-target-min bg-primary-container text-on-primary font-label-bold text-label-bold hover:opacity-90 transition-opacity disabled:opacity-50" 
+              className="flex-1 h-touch-target-min bg-primary-container text-on-primary font-label-bold text-label-bold hover:opacity-90 transition-opacity disabled:opacity-50 rounded" 
               type="button"
               onClick={handlePublish}
               disabled={isPublishing}
             >
               {isPublishing ? 'Publishing...' : 'Publish Rates'}
             </button>
-            <button className="flex-1 h-touch-target-min bg-transparent border-2 border-[#000000] text-on-surface font-label-bold text-label-bold hover:bg-surface-container-high transition-colors" type="button">
+            <button className="flex-1 h-touch-target-min bg-transparent border-2 border-[#000000] text-on-surface font-label-bold text-label-bold hover:bg-surface-container-high transition-colors rounded" type="button">
               Discard
             </button>
           </div>
@@ -287,13 +295,13 @@ export default function MarketRates() {
 
       {/* Right Pane: Market Prices Chart */}
       <section className="flex-1 min-w-[320px]">
-        <header className="mb-8 border-b-2 border-[#000000] pb-4 flex flex-col sm:flex-row justify-between items-start sm:items-end gap-4">
+        <header className="mb-6 border-b-2 border-[#000000] pb-3 flex flex-col sm:flex-row justify-between items-start sm:items-end gap-4">
           <div>
-            <h2 className="font-display-lg text-display-lg-mobile md:text-display-lg text-on-surface">Market Price Trends</h2>
-            <p className="font-body-lg text-body-lg text-on-surface-variant mt-2">Historical price charts for supported commodities.</p>
+            <h3 className="font-headline-md text-headline-md text-on-surface">Market Price Trends</h3>
+            <p className="font-body-md text-body-md text-on-surface-variant mt-1">Historical price charts for supported commodities.</p>
           </div>
           {/* Crop Selector Tabs */}
-          <div className="flex border-2 border-[#000000] overflow-hidden shrink-0">
+          <div className="flex border-2 border-[#000000] overflow-hidden shrink-0 rounded">
             <button 
               type="button" 
               onClick={() => { setSelectedCrop('rice'); setHoveredIndex(null); }}
@@ -313,7 +321,7 @@ export default function MarketRates() {
         </header>
 
         {/* SVG Chart Container */}
-        <div className="bg-surface-container-lowest border-2 border-[#000000] p-6 flex flex-col justify-between min-h-[350px] relative">
+        <div className="bg-surface-container-lowest border-2 border-[#000000] p-6 flex flex-col justify-between min-h-[350px] relative rounded">
           {graphData.length === 0 ? (
             <div className="flex-1 flex flex-col justify-center items-center py-12">
               <span className="material-symbols-outlined text-5xl text-on-surface-variant/70 mb-4 select-none">show_chart</span>
@@ -330,7 +338,7 @@ export default function MarketRates() {
                     ₹ {currentPrice.toLocaleString('en-IN', { minimumFractionDigits: 2 })} / Bag
                   </div>
                 </div>
-                <span className={`px-2 py-1 font-label-bold text-label-bold ${selectedCrop === 'rice' ? 'bg-emerald-100 text-emerald-800 border border-emerald-300' : 'bg-amber-100 text-amber-800 border border-amber-300'}`}>
+                <span className={`px-2 py-1 font-label-bold text-label-bold rounded ${selectedCrop === 'rice' ? 'bg-emerald-100 text-emerald-800 border border-emerald-300' : 'bg-amber-100 text-amber-800 border border-amber-300'}`}>
                   {selectedCrop === 'rice' ? 'Rice (Basmati 1121)' : 'Maize (Corn)'}
                 </span>
               </div>
@@ -439,7 +447,7 @@ export default function MarketRates() {
                 {/* Dynamic HTML Tooltip */}
                 {hoveredIndex !== null && points[hoveredIndex] && (
                   <div 
-                    className="absolute bg-on-surface text-surface text-xs font-semibold px-2 py-1 shadow-lg pointer-events-none transition-all duration-100"
+                    className="absolute bg-on-surface text-surface text-xs font-semibold px-2 py-1 shadow-lg pointer-events-none transition-all duration-100 rounded"
                     style={{ 
                       left: `${(points[hoveredIndex].x / 500) * 100}%`, 
                       top: `${(points[hoveredIndex].y / 250) * 100 - 15}%`,
@@ -455,7 +463,7 @@ export default function MarketRates() {
         </div>
 
         {/* Informative description panel */}
-        <div className="mt-8 bg-surface-container border-2 border-[#000000] p-6">
+        <div className="mt-8 bg-surface-container border-2 border-[#000000] p-6 rounded">
           <h4 className="font-label-bold text-label-bold text-on-surface uppercase tracking-wider mb-2">Market Insights</h4>
           <p className="font-body-md text-body-md text-on-surface-variant">
             Price trends display a 7-day moving window calculated dynamically from local market entries. Update daily rates in the left panel to update today's index value.

@@ -5,6 +5,7 @@ import { getInventorySummary, getInventoryTrace, logBulkPurchase, createGodown, 
 import { useToast } from '../context/ToastContext';
 import EditGodownModal from '../components/EditGodownModal';
 import ConfirmDeleteModal from '../components/ConfirmDeleteModal';
+import LoadingSpinner from '../components/LoadingSpinner';
 
 export default function Inventory() {
   const [isBulkModalOpen, setIsBulkModalOpen] = useState(false);
@@ -116,39 +117,31 @@ export default function Inventory() {
 
   return (
     <div className="p-container-margin flex-1 space-y-section-gap max-w-[1400px] mx-auto w-full">
-      {/* Header Section */}
-      <section className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 border-b border-outline-variant pb-8">
-        <div>
-          <h2 className="font-display-lg text-display-lg text-on-surface mb-2">Inventory Management</h2>
-          <p className="font-body-lg text-on-surface-variant flex items-center gap-2">
-            <span className="material-symbols-outlined text-[20px]">inventory_2</span> Track stock across all godowns
-          </p>
-        </div>
-        <div className="flex gap-4 w-full md:w-auto">
-          <button 
-            onClick={() => setIsGodownModalOpen(true)}
-            className="flex-1 md:flex-none h-[48px] px-6 border-2 border-[#000000] text-[#000000] font-label-bold rounded-none hover:bg-surface-variant transition-colors flex items-center justify-center gap-2"
-          >
-            <span className="material-symbols-outlined text-[24px]">warehouse</span> Add Godown
-          </button>
-          <button 
-            onClick={() => setIsBulkModalOpen(true)}
-            className="flex-1 md:flex-none h-[48px] px-6 bg-primary-container text-on-primary font-label-bold rounded-none hover:opacity-90 transition-opacity flex items-center justify-center gap-2"
-          >
-            <span className="material-symbols-outlined text-[24px]">add_shopping_cart</span> Bulk Purchase
-          </button>
-        </div>
-      </section>
-
       {isLoading ? (
-        <div className="text-center py-12 text-on-surface-variant font-body-lg">Loading inventory data...</div>
+        <LoadingSpinner message="Loading inventory data..." />
       ) : (
         <>
           {/* Godowns Section */}
           <section>
-            <h3 className="font-headline-lg text-headline-lg text-on-surface mb-6 border-b border-outline-variant pb-2">Stock by Godown</h3>
+            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6 border-b border-outline-variant pb-2">
+              <h3 className="font-headline-lg text-headline-lg text-on-surface">Stock by Godown</h3>
+              <div className="flex gap-3 w-full md:w-auto">
+                <button 
+                  onClick={() => setIsGodownModalOpen(true)}
+                  className="flex-1 md:flex-none h-[40px] px-4 border-2 border-[#000000] text-[#000000] font-label-bold text-sm rounded hover:bg-surface-variant transition-colors flex items-center justify-center gap-2 cursor-pointer"
+                >
+                  <span className="material-symbols-outlined text-[20px]">warehouse</span> Add Godown
+                </button>
+                <button 
+                  onClick={() => setIsBulkModalOpen(true)}
+                  className="flex-1 md:flex-none h-[40px] px-4 bg-primary-container text-on-primary font-label-bold text-sm rounded hover:opacity-90 transition-opacity flex items-center justify-center gap-2 cursor-pointer border-2 border-black"
+                >
+                  <span className="material-symbols-outlined text-[20px]">add_shopping_cart</span> Bulk Purchase
+                </button>
+              </div>
+            </div>
             {godownsList.length === 0 ? (
-              <div className="bg-surface-container-lowest border border-outline-variant p-8 text-center text-on-surface-variant font-medium">
+              <div className="bg-surface-container-lowest border border-outline-variant p-8 text-center text-on-surface-variant font-medium rounded">
                 No godowns found. Please add a godown to start tracking inventory.
               </div>
             ) : (
@@ -161,7 +154,7 @@ export default function Inventory() {
                   return (
                   <div 
                     key={godown.id} 
-                    className="border-2 border-[#000000] bg-surface-container-lowest flex flex-col hover:shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] transition-all cursor-pointer transform hover:-translate-y-1 rounded-none overflow-hidden"
+                    className="border-2 border-[#000000] bg-surface-container-lowest flex flex-col hover:shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] transition-all cursor-pointer transform hover:-translate-y-1 rounded overflow-hidden"
                     onClick={() => {
                         setSelectedGodownId(godown.id);
                         setIsDetailsModalOpen(true);
@@ -178,8 +171,9 @@ export default function Inventory() {
                             e.stopPropagation();
                             setGodownToEdit(godown);
                           }}
-                          className="p-1.5 border border-outline hover:border-black hover:bg-surface-variant text-on-surface rounded-none cursor-pointer transition-colors flex items-center justify-center bg-surface"
+                          className="p-1.5 border border-outline hover:border-black hover:bg-surface-variant text-on-surface rounded cursor-pointer transition-colors flex items-center justify-center bg-surface"
                           title="Edit Godown"
+                          aria-label="Edit Godown"
                         >
                           <span className="material-symbols-outlined text-[18px]">edit</span>
                         </button>
@@ -188,8 +182,9 @@ export default function Inventory() {
                             e.stopPropagation();
                             setGodownToDelete(godown);
                           }}
-                          className="p-1.5 border border-outline hover:border-error hover:bg-[#F8D7DA] hover:text-[#842029] text-on-surface rounded-none cursor-pointer transition-colors flex items-center justify-center bg-surface"
+                          className="p-1.5 border border-outline hover:border-error hover:bg-[#F8D7DA] hover:text-[#842029] text-on-surface rounded cursor-pointer transition-colors flex items-center justify-center bg-surface"
                           title="Delete Godown"
+                          aria-label="Delete Godown"
                         >
                           <span className="material-symbols-outlined text-[18px]">delete</span>
                         </button>
@@ -224,12 +219,12 @@ export default function Inventory() {
               </div>
             )}
           </section>
-
+ 
           {/* Traceability / Stock Movement Table */}
           <section className="mt-section-gap">
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6">
               <h3 className="font-headline-lg text-headline-lg text-on-surface border-b border-outline-variant pb-2 flex-grow">Inventory Traceability</h3>
-              <div className="flex border-2 border-[#000000] rounded-none overflow-hidden shrink-0">
+              <div className="flex border-2 border-[#000000] rounded overflow-hidden shrink-0">
                 <button 
                   onClick={() => setTraceCropType('RICE')}
                   className={`px-6 py-2 font-label-bold ${traceCropType === 'RICE' ? 'bg-[#000000] text-surface' : 'bg-surface text-on-surface hover:bg-surface-variant'}`}
@@ -246,7 +241,7 @@ export default function Inventory() {
               </div>
             </div>
             
-            <div className="border border-outline-variant overflow-x-auto bg-surface-container-lowest">
+            <div className="border border-outline-variant overflow-x-auto bg-surface-container-lowest rounded">
               <table className="w-full text-left border-collapse">
                 <thead>
                   <tr className="border-b-2 border-[#000000] bg-surface-variant">

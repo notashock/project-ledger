@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from 'react';
+import FocusTrap from 'focus-trap-react';
 import { getGodownDetails, updatePurchase, updateBulkPurchase } from '../services/api';
 import { useToast } from '../context/ToastContext';
 import { PurchaseModal } from './Modals';
 import { BulkPurchaseModal } from './InventoryModals';
+import LoadingSpinner from './LoadingSpinner';
 
 export default function GodownDetailsModal({ isOpen, onClose, godownId }) {
   const [details, setDetails] = useState(null);
@@ -11,6 +13,20 @@ export default function GodownDetailsModal({ isOpen, onClose, godownId }) {
   const [isPurchaseModalOpen, setIsPurchaseModalOpen] = useState(false);
   const [isBulkModalOpen, setIsBulkModalOpen] = useState(false);
   const toast = useToast();
+
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape') {
+        onClose();
+      }
+    };
+    if (isOpen) {
+      window.addEventListener('keydown', handleKeyDown);
+    }
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [isOpen, onClose]);
 
   const loadDetails = () => {
     if (godownId) {
@@ -66,8 +82,9 @@ export default function GodownDetailsModal({ isOpen, onClose, godownId }) {
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-on-surface/20 backdrop-blur-sm p-4 md:p-8 overflow-y-auto">
-      <div className="w-full max-w-5xl bg-surface border-2 border-[#000000] relative flex flex-col shadow-none min-h-[60vh] max-h-[90vh] overflow-hidden">
+    <FocusTrap active={isOpen} focusTrapOptions={{ clickOutsideDeactivates: true }}>
+      <div className="fixed inset-0 z-[100] flex items-center justify-center bg-on-surface/20 backdrop-blur-sm p-4 md:p-8 overflow-y-auto">
+        <div className="w-full max-w-5xl bg-surface border-2 border-[#000000] relative flex flex-col shadow-none min-h-[60vh] max-h-[90vh] overflow-hidden rounded">
         {/* Header */}
         <div className="flex items-center justify-between p-6 border-b-2 border-[#000000] bg-surface-variant sticky top-0 z-10">
           <div>
@@ -79,22 +96,20 @@ export default function GodownDetailsModal({ isOpen, onClose, godownId }) {
               {details?.godown?.location}
             </p>
           </div>
-          <button type="button" onClick={onClose} className="w-12 h-12 flex items-center justify-center hover:bg-surface-container-high transition-colors border-2 border-[#000000] bg-surface text-[#000000]">
+          <button type="button" onClick={onClose} className="w-12 h-12 flex items-center justify-center hover:bg-surface-container-high transition-colors border-2 border-[#000000] bg-surface text-[#000000] rounded">
             <span className="material-symbols-outlined" style={{ fontVariationSettings: "'FILL' 0" }}>close</span>
           </button>
         </div>
 
         <div className="p-6 md:p-8 overflow-y-auto flex flex-col gap-8 bg-surface">
           {isLoading ? (
-            <div className="flex-1 flex items-center justify-center text-on-surface-variant font-body-lg">
-              Loading details...
-            </div>
+            <LoadingSpinner message="Loading details..." />
           ) : details ? (
             <>
               {/* Summary Metrics */}
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 {/* RICE Card */}
-                <div className="border-2 border-[#000000] bg-surface-container-lowest p-6 flex flex-col gap-4">
+                <div className="border-2 border-[#000000] bg-surface-container-lowest p-6 flex flex-col gap-4 rounded">
                   <div className="flex items-center gap-2 border-b border-outline-variant pb-2">
                     <span className="material-symbols-outlined text-primary text-[28px]">grain</span>
                     <h3 className="font-headline-md text-headline-md text-on-surface">Rice Summary</h3>
@@ -120,7 +135,7 @@ export default function GodownDetailsModal({ isOpen, onClose, godownId }) {
                 </div>
 
                 {/* MAIZE Card */}
-                <div className="border-2 border-[#000000] bg-surface-container-lowest p-6 flex flex-col gap-4">
+                <div className="border-2 border-[#000000] bg-surface-container-lowest p-6 flex flex-col gap-4 rounded">
                   <div className="flex items-center gap-2 border-b border-outline-variant pb-2">
                     <span className="material-symbols-outlined text-tertiary text-[28px]">grass</span>
                     <h3 className="font-headline-md text-headline-md text-on-surface">Maize Summary</h3>
@@ -147,7 +162,7 @@ export default function GodownDetailsModal({ isOpen, onClose, godownId }) {
               </div>
 
               {/* Grand Total Row */}
-              <div className="flex flex-col md:flex-row justify-between items-center p-6 border-2 border-[#000000] bg-surface-variant gap-4">
+              <div className="flex flex-col md:flex-row justify-between items-center p-6 border-2 border-[#000000] bg-surface-variant gap-4 rounded">
                  <div className="flex items-center gap-4">
                     <span className="material-symbols-outlined text-[32px] text-on-surface">account_balance_wallet</span>
                     <div>
@@ -167,7 +182,7 @@ export default function GodownDetailsModal({ isOpen, onClose, godownId }) {
               {/* Purchases Table */}
               <div className="flex flex-col gap-4">
                 <h3 className="font-headline-md text-headline-md text-on-surface border-b border-outline-variant pb-2">Purchase History</h3>
-                <div className="border-2 border-[#000000] overflow-x-auto bg-surface-container-lowest">
+                <div className="border-2 border-[#000000] overflow-x-auto bg-surface-container-lowest rounded">
                   <table className="w-full text-left border-collapse">
                     <thead>
                       <tr className="border-b-2 border-[#000000] bg-surface-variant">
@@ -210,7 +225,7 @@ export default function GodownDetailsModal({ isOpen, onClose, godownId }) {
                                   setIsPurchaseModalOpen(true);
                                 }
                               }}
-                              className="p-1 border border-outline hover:bg-surface-variant text-on-surface-variant rounded-none cursor-pointer transition-colors inline-flex items-center justify-center bg-surface"
+                              className="p-1 border border-outline hover:bg-surface-variant text-on-surface-variant rounded cursor-pointer transition-colors inline-flex items-center justify-center bg-surface"
                               title="Edit Purchase"
                             >
                               <span className="material-symbols-outlined text-[18px]">edit</span>
@@ -254,6 +269,7 @@ export default function GodownDetailsModal({ isOpen, onClose, godownId }) {
           bulkPurchase={editingItem}
         />
       )}
-    </div>
+      </div>
+    </FocusTrap>
   );
 }

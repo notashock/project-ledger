@@ -71,6 +71,7 @@ export const scanReceipt = (formData) => api.post('/ai/scan-debit', formData, {
 export const getFarmers = () => api.get('/farmers').then((res) => res.data);
 export const getFarmerById = (id) => api.get(`/farmers/${id}`).then((res) => res.data);
 export const getFarmerHistory = (id, query = '') => api.get(`/farmers/${id}/history`, { params: { query } }).then((res) => res.data);
+export const getRecentTransactions = (limit = 10) => api.get('/transactions/recent', { params: { limit } }).then((res) => res.data);
 
 export const createFarmer = (data) => api.post('/farmers', data).then((res) => res.data);
 export const logPurchase = (data) => api.post('/transactions/purchase', data).then((res) => res.data);

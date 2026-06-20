@@ -9,5 +9,8 @@ import java.util.UUID;
 
 @Repository
 public interface BulkPurchaseRepository extends JpaRepository<BulkPurchase, UUID> {
-    List<BulkPurchase> findByGodownIdOrderByDateDesc(UUID godownId);
+    java.util.List<BulkPurchase> findByUser(com.trustledger.model.AppUser user);
+    java.util.Optional<BulkPurchase> findByIdAndUser(UUID id, com.trustledger.model.AppUser user);
+
+    List<BulkPurchase> findByGodownIdAndUserOrderByDateDesc(UUID godownId, com.trustledger.model.AppUser user);
 }

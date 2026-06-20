@@ -15,21 +15,22 @@ import java.util.UUID;
 @Repository
 public interface InventoryLogRepository extends JpaRepository<InventoryLog, UUID> {
     
-    List<InventoryLog> findAllByOrderByDateDesc();
+    List<InventoryLog> findByUserOrderByDateDesc(com.trustledger.model.AppUser user);
 
-    List<InventoryLog> findByCropTypeOrderByDateDesc(CropType cropType);
+    List<InventoryLog> findByCropTypeAndUserOrderByDateDesc(CropType cropType, com.trustledger.model.AppUser user);
 
     @Query("SELECT new com.trustledger.dto.InventorySummaryDto(g.id, g.name, i.cropType, SUM(i.quantity)) " +
            "FROM InventoryLog i JOIN i.godown g " +
+           "WHERE i.user = :user " +
            "GROUP BY g.id, g.name, i.cropType")
-    List<InventorySummaryDto> getInventorySummary();
+    List<InventorySummaryDto> getInventorySummaryAndUser(@Param("user") com.trustledger.model.AppUser user);
 
-    List<InventoryLog> findByGodownId(UUID godownId);
+    List<InventoryLog> findByGodownIdAndUser(UUID godownId, com.trustledger.model.AppUser user);
 
     void deleteByReferenceId(UUID referenceId);
 
     List<InventoryLog> findByReferenceId(UUID referenceId);
 
-    @Query("SELECT SUM(i.quantity) FROM InventoryLog i WHERE i.godown.id = :godownId")
-    java.math.BigDecimal sumQuantityByGodownId(@Param("godownId") UUID godownId);
+    @Query("SELECT SUM(i.quantity) FROM InventoryLog i WHERE i.godown.id = :godownId AND i.user = :user")
+    java.math.BigDecimal sumQuantityByGodownIdAndUser(@Param("godownId") UUID godownId, @Param("user") com.trustledger.model.AppUser user);
 }

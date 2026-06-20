@@ -49,4 +49,8 @@ public class CropPurchase {
 
     @Column(precision = 10, scale = 2)
     private BigDecimal machineCost;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "user_id")
+    private AppUser user;
 }

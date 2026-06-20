@@ -24,4 +24,8 @@ public class Farmer {
 
     @Column(precision = 12, scale = 2)
     private BigDecimal netBalance = BigDecimal.ZERO;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "user_id")
+    private AppUser user;
 }

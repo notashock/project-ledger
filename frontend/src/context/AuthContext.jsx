@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { useNavigate, Navigate } from 'react-router-dom';
 import { loginUser, registerLogoutHandler } from '../services/api';
+import LoadingSpinner from '../components/LoadingSpinner';
 
 const AuthContext = createContext(null);
 
@@ -68,7 +69,7 @@ export function ProtectedRoute({ children }) {
   if (loading) {
     return (
       <div className="bg-surface text-on-surface min-h-screen flex items-center justify-center font-body-lg">
-        Loading...
+        <LoadingSpinner message="Authenticating..." />
       </div>
     );
   }

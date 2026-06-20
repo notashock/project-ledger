@@ -35,4 +35,8 @@ public class LedgerDebit {
     private String description;
 
     private String otherCategorySpecify;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "user_id")
+    private AppUser user;
 }

@@ -44,4 +44,8 @@ public class InventoryLog {
     
     private String vehicle;
     private String notes;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "user_id")
+    private AppUser user;
 }

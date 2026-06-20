@@ -32,5 +32,9 @@ public class DailyRate {
     public BigDecimal getBagWeight() {
         return bagWeight != null ? bagWeight : BigDecimal.valueOf(101.0);
     }
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "user_id")
+    private AppUser user;
 }
 

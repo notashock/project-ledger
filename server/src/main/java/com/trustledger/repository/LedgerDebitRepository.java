@@ -9,5 +9,8 @@ import java.util.UUID;
 
 @Repository
 public interface LedgerDebitRepository extends JpaRepository<LedgerDebit, UUID> {
-    List<LedgerDebit> findByFarmerIdOrderByDateDesc(UUID farmerId);
+    java.util.List<LedgerDebit> findByUser(com.trustledger.model.AppUser user);
+    java.util.Optional<LedgerDebit> findByIdAndUser(UUID id, com.trustledger.model.AppUser user);
+
+    List<LedgerDebit> findByFarmerIdAndUserOrderByDateDesc(UUID farmerId, com.trustledger.model.AppUser user);
 }

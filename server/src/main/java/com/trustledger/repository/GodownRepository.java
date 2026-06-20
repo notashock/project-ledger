@@ -8,4 +8,6 @@ import java.util.UUID;
 
 @Repository
 public interface GodownRepository extends JpaRepository<Godown, UUID> {
+    java.util.List<Godown> findByUser(com.trustledger.model.AppUser user);
+    java.util.Optional<Godown> findByIdAndUser(UUID id, com.trustledger.model.AppUser user);
 }

@@ -1,6 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { getAllGodowns, createGodown } from '../services/api';
+import { getAllGodowns } from '../services/api';
 import { useToast } from '../context/ToastContext';
+import ModalShell from './ModalShell';
+import QuickGodownRegisterForm from './QuickGodownRegisterForm';
+import CustomSelect from './CustomSelect';
+import CustomDatePicker from './CustomDatePicker';
 
 export function BulkPurchaseModal({ isOpen, onClose, onSubmit, bulkPurchase = null }) {
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
@@ -12,11 +16,8 @@ export function BulkPurchaseModal({ isOpen, onClose, onSubmit, bulkPurchase = nu
   const [godowns, setGodowns] = useState([]);
   const [godownId, setGodownId] = useState('');
 
-  // Quick godown registration state
+  // Quick godown registration toggle
   const [showQuickRegisterGodown, setShowQuickRegisterGodown] = useState(false);
-  const [quickGodownName, setQuickGodownName] = useState('');
-  const [quickGodownLocation, setQuickGodownLocation] = useState('');
-  const [isRegisteringGodown, setIsRegisteringGodown] = useState(false);
 
   const noOfBags = weight && bagWeight ? (parseFloat(weight) / parseFloat(bagWeight)).toFixed(2) : '0.00';
   const estTotalAmount = weight && ratePerQuintal ? ((parseFloat(weight) / 100) * parseFloat(ratePerQuintal)).toFixed(2) : '0.00';
@@ -60,39 +61,15 @@ export function BulkPurchaseModal({ isOpen, onClose, onSubmit, bulkPurchase = nu
         setBagWeight('101');
       }
       setShowQuickRegisterGodown(false);
-      setQuickGodownName('');
-      setQuickGodownLocation('');
     }
   }, [isOpen, bulkPurchase]);
 
-  const handleQuickRegisterGodown = async () => {
-    if (!quickGodownName.trim() || !quickGodownLocation.trim()) {
-      toast.error('Godown Name and Location are required.');
-      return;
-    }
-    setIsRegisteringGodown(true);
-    try {
-      const newGodown = await createGodown({
-        name: quickGodownName.trim(),
-        location: quickGodownLocation.trim()
-      });
-      toast.success('Godown registered successfully!');
-      
-      const updatedGodowns = await getAllGodowns();
-      setGodowns(updatedGodowns);
-      setGodownId(newGodown.id);
-      
-      setQuickGodownName('');
-      setQuickGodownLocation('');
-      setShowQuickRegisterGodown(false);
-    } catch (err) {
-      toast.error(err.message || 'Failed to register godown');
-    } finally {
-      setIsRegisteringGodown(false);
-    }
+  const handleGodownRegistered = async (newGodown) => {
+    const updatedGodowns = await getAllGodowns();
+    setGodowns(updatedGodowns);
+    setGodownId(newGodown.id);
+    setShowQuickRegisterGodown(false);
   };
-
-  if (!isOpen) return null;
 
   const handleSubmit = (e) => {
     e.preventDefault();
@@ -115,137 +92,123 @@ export function BulkPurchaseModal({ isOpen, onClose, onSubmit, bulkPurchase = nu
   };
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-on-surface/10 backdrop-blur-sm p-4 md:p-container-margin overflow-y-auto">
-      <div className="w-full max-w-xl bg-surface border-2 border-[#000000] relative flex flex-col shadow-none">
-        <div className="flex items-center justify-between p-6 border-b border-outline-variant">
-          <h2 className="font-headline-lg text-headline-lg text-on-surface">{bulkPurchase ? 'Edit Bulk Purchase' : 'Record Bulk Purchase'}</h2>
-          <button type="button" onClick={onClose} className="w-12 h-12 flex items-center justify-center hover:bg-surface-container-high transition-colors">
-            <span className="material-symbols-outlined text-on-surface" style={{ fontVariationSettings: "'FILL' 0" }}>close</span>
-          </button>
-        </div>
-        
-        <form onSubmit={handleSubmit} className="p-6 md:p-8 flex flex-col gap-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div className="flex flex-col gap-2">
-              <label className="font-label-bold text-label-bold text-on-surface">Date</label>
-              <input required type="date" value={date} onChange={e => setDate(e.target.value)} className="h-[48px] px-4 border border-outline focus:border-[#000000] focus:border-2 bg-surface outline-none transition-all" />
+    <ModalShell 
+      isOpen={isOpen} 
+      onClose={onClose} 
+      title={bulkPurchase ? 'Edit Bulk Purchase' : 'Record Bulk Purchase'} 
+      size="xl" 
+      zIndex="z-[100]"
+    >
+      <form onSubmit={handleSubmit} className="space-y-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {/* Date */}
+          <div className="flex flex-col gap-2">
+            <label className="font-label-bold text-on-surface">Date</label>
+            <CustomDatePicker value={date} onChange={setDate} />
+          </div>
+
+          {/* Crop Type */}
+          <div className="flex flex-col gap-2">
+            <label className="font-label-bold text-on-surface">Crop Type</label>
+            <CustomSelect 
+              value={cropType} 
+              onChange={val => setCropType(val)}
+              options={[
+                { value: 'RICE', label: 'Rice (Basmati 1121)' },
+                { value: 'MAIZE', label: 'Maize (Corn)' }
+              ]}
+            />
+          </div>
+
+          {/* Supplier Name */}
+          <div className="flex flex-col gap-2 md:col-span-2">
+            <label className="font-label-bold text-on-surface">Supplier Name</label>
+            <input required type="text" placeholder="Enter supplier name" value={supplierName} onChange={e => setSupplierName(e.target.value)} className="h-[48px] px-4 border border-outline focus:border-[#000000] focus:border-2 bg-surface outline-none transition-all rounded" />
+          </div>
+
+          {/* Weight */}
+          <div className="flex flex-col gap-2">
+            <label className="font-label-bold text-on-surface">Total Weight (Kg)</label>
+            <input required type="number" step="0.01" min="0.01" placeholder="0.00" value={weight} onChange={e => setWeight(e.target.value)} className="h-[48px] px-4 border border-outline focus:border-[#000000] focus:border-2 bg-surface outline-none transition-all text-right rounded" />
+          </div>
+
+          {/* Rate per Quintal */}
+          <div className="flex flex-col gap-2">
+            <label className="font-label-bold text-on-surface">Rate per Quintal (₹)</label>
+            <input required type="number" step="0.01" min="0.00" placeholder="0.00" value={ratePerQuintal} onChange={e => setRatePerQuintal(e.target.value)} className="h-[48px] px-4 border border-outline focus:border-[#000000] focus:border-2 bg-surface outline-none transition-all text-right rounded" />
+          </div>
+
+          {/* Bag Weight */}
+          <div className="flex flex-col gap-2">
+            <label className="font-label-bold text-on-surface">Bag Weight (Kg)</label>
+            <input required type="number" step="0.01" min="0.01" value={bagWeight} onChange={e => setBagWeight(e.target.value)} className="h-[48px] px-4 border border-outline focus:border-[#000000] focus:border-2 bg-surface outline-none transition-all text-right rounded" />
+          </div>
+
+          {/* No of Bags */}
+          <div className="flex flex-col gap-2">
+            <label className="font-label-bold text-on-surface">Est. No. of Bags</label>
+            <div className="h-[48px] px-4 border border-outline bg-surface-container flex items-center justify-end font-number-lg text-on-surface-variant rounded">
+              {noOfBags}
             </div>
-            <div className="flex flex-col gap-2">
-              <label className="font-label-bold text-label-bold text-on-surface">Crop Type</label>
-              <div className="relative">
-                <select required value={cropType} onChange={e => setCropType(e.target.value)} className="appearance-none w-full h-[48px] px-4 border border-outline focus:border-[#000000] focus:border-2 bg-surface outline-none transition-all rounded-none">
-                  <option value="RICE">Rice (Basmati 1121)</option>
-                  <option value="MAIZE">Maize (Corn)</option>
-                </select>
-                <span className="material-symbols-outlined absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-on-surface">arrow_drop_down</span>
-              </div>
+          </div>
+
+          {/* Est Total Amount */}
+          <div className="flex flex-col gap-2 md:col-span-2">
+            <label className="font-label-bold text-on-surface">Est. Total Amount spent (₹)</label>
+            <div className="h-[48px] px-4 border border-outline bg-surface-container flex items-center justify-end font-number-lg text-on-surface-variant font-bold rounded">
+              ₹{parseFloat(estTotalAmount).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
             </div>
-            <div className="flex flex-col gap-2 md:col-span-2">
-              <label className="font-label-bold text-label-bold text-on-surface">Supplier Name</label>
-              <input required type="text" placeholder="Enter supplier name" value={supplierName} onChange={e => setSupplierName(e.target.value)} className="h-[48px] px-4 border border-outline focus:border-[#000000] focus:border-2 bg-surface outline-none transition-all" />
+          </div>
+
+          {/* Unload Godown */}
+          <div className="flex flex-col gap-2 md:col-span-2">
+            <div className="flex justify-between items-center">
+              <label className="font-label-bold text-on-surface">Unload Godown</label>
+              <button 
+                type="button" 
+                onClick={() => setShowQuickRegisterGodown(!showQuickRegisterGodown)} 
+                className="text-primary text-xs font-label-bold hover:underline"
+              >
+                {showQuickRegisterGodown ? 'Select Existing' : '+ Register New'}
+              </button>
             </div>
-            <div className="flex flex-col gap-2">
-              <label className="font-label-bold text-label-bold text-on-surface">Total Weight (Kg)</label>
-              <input required type="number" step="0.01" min="0.01" placeholder="0.00" value={weight} onChange={e => setWeight(e.target.value)} className="h-[48px] px-4 border border-outline focus:border-[#000000] focus:border-2 bg-surface outline-none transition-all text-right" />
-            </div>
-            <div className="flex flex-col gap-2">
-              <label className="font-label-bold text-label-bold text-on-surface">Rate per Quintal (₹)</label>
-              <input required type="number" step="0.01" min="0.00" placeholder="0.00" value={ratePerQuintal} onChange={e => setRatePerQuintal(e.target.value)} className="h-[48px] px-4 border border-outline focus:border-[#000000] focus:border-2 bg-surface outline-none transition-all text-right" />
-            </div>
-            <div className="flex flex-col gap-2">
-              <label className="font-label-bold text-label-bold text-on-surface">Bag Weight (Kg)</label>
-              <input required type="number" step="0.01" min="0.01" value={bagWeight} onChange={e => setBagWeight(e.target.value)} className="h-[48px] px-4 border border-outline focus:border-[#000000] focus:border-2 bg-surface outline-none transition-all text-right" />
-            </div>
-            <div className="flex flex-col gap-2">
-              <label className="font-label-bold text-label-bold text-on-surface">Est. No. of Bags</label>
-              <div className="h-[48px] px-4 border border-outline bg-surface-container flex items-center justify-end font-number-lg text-on-surface-variant">
-                {noOfBags}
-              </div>
-            </div>
-            <div className="flex flex-col gap-2 md:col-span-2">
-              <label className="font-label-bold text-label-bold text-on-surface">Est. Total Amount spent (₹)</label>
-              <div className="h-[48px] px-4 border border-outline bg-surface-container flex items-center justify-end font-number-lg text-on-surface-variant">
-                ₹{estTotalAmount}
-              </div>
-            </div>
-            <div className="flex flex-col gap-2 md:col-span-2">
-              <div className="flex justify-between items-center">
-                <label className="font-label-bold text-label-bold text-on-surface">Unload Godown</label>
-                <button 
-                  type="button" 
-                  onClick={() => setShowQuickRegisterGodown(!showQuickRegisterGodown)} 
-                  className="text-primary text-xs font-label-bold hover:underline"
-                >
-                  {showQuickRegisterGodown ? 'Select Existing' : '+ Register New'}
-                </button>
-              </div>
-              {showQuickRegisterGodown ? (
-                <div className="border border-outline p-4 bg-surface-container-low flex flex-col gap-3 rounded-none">
-                  <div className="font-label-bold text-xs text-primary uppercase tracking-wider">Quick Register Godown</div>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                    <input 
-                      type="text" 
-                      placeholder="Godown Name *" 
-                      value={quickGodownName} 
-                      onChange={e => setQuickGodownName(e.target.value)}
-                      className="h-[36px] px-3 border border-outline bg-surface text-sm outline-none w-full" 
-                    />
-                    <input 
-                      type="text" 
-                      placeholder="Location *" 
-                      value={quickGodownLocation} 
-                      onChange={e => setQuickGodownLocation(e.target.value)}
-                      className="h-[36px] px-3 border border-outline bg-surface text-sm outline-none w-full" 
-                    />
-                  </div>
-                  <button 
-                    type="button" 
-                    disabled={isRegisteringGodown || !quickGodownName.trim() || !quickGodownLocation.trim()}
-                    onClick={handleQuickRegisterGodown}
-                    className="w-full h-[36px] bg-primary text-on-primary font-label-bold text-xs hover:opacity-90 disabled:opacity-50 transition-opacity flex justify-center items-center gap-2 border border-transparent rounded-none"
-                  >
-                    {isRegisteringGodown && <span className="material-symbols-outlined animate-spin text-sm">progress_activity</span>}
-                    Register & Select Godown
-                  </button>
+            {showQuickRegisterGodown ? (
+              <QuickGodownRegisterForm 
+                onGodownRegistered={handleGodownRegistered}
+                onCancel={() => setShowQuickRegisterGodown(false)}
+              />
+            ) : (
+              godowns.length === 0 ? (
+                <div className="h-[48px] bg-error-container text-on-error-container flex items-center px-4 font-label-bold text-[14px] rounded border border-error">
+                  Add a godown first.
                 </div>
               ) : (
-                godowns.length === 0 ? (
-                  <div className="h-[48px] bg-error-container text-on-error-container flex items-center px-4 font-label-bold text-[14px]">
-                    Add a godown first.
-                  </div>
-                ) : (
-                  <div className="relative">
-                    <select required value={godownId} onChange={e => setGodownId(e.target.value)} className="appearance-none w-full h-[48px] px-4 border border-outline focus:border-[#000000] focus:border-2 bg-surface outline-none transition-all rounded-none">
-                      {godowns.map(g => (
-                        <option key={g.id} value={g.id}>{g.name} ({g.location})</option>
-                      ))}
-                    </select>
-                    <span className="material-symbols-outlined absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-on-surface">arrow_drop_down</span>
-                  </div>
-                )
-              )}
-            </div>
+                <CustomSelect 
+                  value={godownId} 
+                  onChange={val => setGodownId(val)}
+                  options={godowns.map(g => ({ value: g.id, label: `${g.name} (${g.location})` }))}
+                />
+              )
+            )}
           </div>
-          
-          <div className="mt-4 flex gap-4">
-            <button type="button" onClick={onClose} className="flex-1 h-[48px] border-2 border-[#000000] font-label-bold text-[#000000] hover:bg-surface-variant transition-colors">
-              Cancel
-            </button>
-            <button type="submit" disabled={godowns.length === 0} className="flex-1 h-[48px] bg-primary-container text-on-primary font-label-bold hover:opacity-90 transition-opacity disabled:opacity-50">
-              {bulkPurchase ? 'Save Changes' : 'Record Bulk Purchase'}
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
+        </div>
+        
+        <div className="flex gap-4 justify-end pt-4 border-t border-outline/30">
+          <button type="button" onClick={onClose} className="h-[48px] px-6 border-2 border-on-surface bg-surface text-on-surface font-label-bold hover:bg-surface-variant transition-colors rounded">
+            Cancel
+          </button>
+          <button type="submit" disabled={godowns.length === 0} className="h-[48px] px-6 bg-primary text-on-primary border-2 border-on-surface shadow-[3px_3px_0px_0px_rgba(0,0,0,1)] active:translate-y-[1px] active:shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] font-label-bold transition-all hover:opacity-90 disabled:opacity-50 rounded">
+            {bulkPurchase ? 'Save Changes' : 'Record Bulk Purchase'}
+          </button>
+        </div>
+      </form>
+    </ModalShell>
   );
 }
 
 export function GodownModal({ isOpen, onClose, onSubmit }) {
   const [name, setName] = useState('');
   const [location, setLocation] = useState('');
-
-  if (!isOpen) return null;
 
   const handleSubmit = (e) => {
     e.preventDefault();
@@ -255,35 +218,26 @@ export function GodownModal({ isOpen, onClose, onSubmit }) {
   };
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-on-surface/10 backdrop-blur-sm p-4">
-      <div className="w-full max-w-md bg-surface border-2 border-[#000000] relative flex flex-col shadow-none">
-        <div className="flex items-center justify-between p-6 border-b border-outline-variant">
-          <h2 className="font-headline-lg text-headline-lg text-on-surface">Add Godown</h2>
-          <button type="button" onClick={onClose} className="w-10 h-10 flex items-center justify-center hover:bg-surface-container-high transition-colors">
-            <span className="material-symbols-outlined text-on-surface" style={{ fontVariationSettings: "'FILL' 0" }}>close</span>
-          </button>
+    <ModalShell isOpen={isOpen} onClose={onClose} title="Add Godown" size="md" zIndex="z-[100]">
+      <form onSubmit={handleSubmit} className="space-y-6">
+        <div className="flex flex-col gap-2">
+          <label className="font-label-bold text-on-surface">Godown Name</label>
+          <input required type="text" placeholder="e.g. Main Godown" value={name} onChange={e => setName(e.target.value)} className="h-[48px] px-4 border border-outline focus:border-[#000000] focus:border-2 bg-surface outline-none transition-all rounded" />
+        </div>
+        <div className="flex flex-col gap-2">
+          <label className="font-label-bold text-on-surface">Location</label>
+          <input required type="text" placeholder="e.g. Industrial Area Phase 1" value={location} onChange={e => setLocation(e.target.value)} className="h-[48px] px-4 border border-outline focus:border-[#000000] focus:border-2 bg-surface outline-none transition-all rounded" />
         </div>
         
-        <form onSubmit={handleSubmit} className="p-6 flex flex-col gap-6">
-          <div className="flex flex-col gap-2">
-            <label className="font-label-bold text-label-bold text-on-surface">Godown Name</label>
-            <input required type="text" placeholder="e.g. Main Godown" value={name} onChange={e => setName(e.target.value)} className="h-[48px] px-4 border border-outline focus:border-[#000000] focus:border-2 bg-surface outline-none transition-all" />
-          </div>
-          <div className="flex flex-col gap-2">
-            <label className="font-label-bold text-label-bold text-on-surface">Location</label>
-            <input required type="text" placeholder="e.g. Industrial Area Phase 1" value={location} onChange={e => setLocation(e.target.value)} className="h-[48px] px-4 border border-outline focus:border-[#000000] focus:border-2 bg-surface outline-none transition-all" />
-          </div>
-          
-          <div className="mt-2 flex gap-4">
-            <button type="button" onClick={onClose} className="flex-1 h-[48px] border-2 border-[#000000] font-label-bold text-[#000000] hover:bg-surface-variant transition-colors">
-              Cancel
-            </button>
-            <button type="submit" className="flex-1 h-[48px] bg-primary-container text-on-primary font-label-bold hover:opacity-90 transition-opacity">
-              Add Godown
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
+        <div className="flex gap-4 justify-end pt-4 border-t border-outline/30">
+          <button type="button" onClick={onClose} className="h-[48px] px-6 border-2 border-on-surface bg-surface text-on-surface font-label-bold hover:bg-surface-variant transition-colors rounded">
+            Cancel
+          </button>
+          <button type="submit" className="h-[48px] px-6 bg-primary text-on-primary border-2 border-on-surface shadow-[3px_3px_0px_0px_rgba(0,0,0,1)] active:translate-y-[1px] active:shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] font-label-bold hover:opacity-90 transition-all rounded">
+            Add Godown
+          </button>
+        </div>
+      </form>
+    </ModalShell>
   );
 }

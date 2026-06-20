@@ -21,4 +21,8 @@ public class Godown {
     private String name;
 
     private String location;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "user_id")
+    private AppUser user;
 }

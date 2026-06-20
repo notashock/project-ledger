@@ -28,11 +28,11 @@ export function ToastProvider({ children }) {
     <ToastContext.Provider value={toast}>
       {children}
       {/* Toast Overlay Container */}
-      <div className="fixed top-6 right-6 z-[200] flex flex-col gap-4 max-w-sm w-full pointer-events-none font-body-md">
+      <div className="fixed top-6 right-6 z-[300] flex flex-col gap-4 max-w-sm w-full pointer-events-none font-body-md">
         {toasts.map((t) => (
           <div
             key={t.id}
-            className={`pointer-events-auto p-4 border-2 border-[#000000] shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] flex items-center justify-between gap-4 transition-all duration-300 animate-slide-in ${
+            className={`pointer-events-auto p-4 border-2 border-[#000000] shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] flex items-center justify-between gap-4 transition-all duration-300 animate-slide-in rounded ${
               t.type === 'success' ? 'bg-[#D1E7DD] text-[#0F5132]' :
               t.type === 'error' ? 'bg-[#F8D7DA] text-[#842029]' :
               t.type === 'warning' ? 'bg-[#FFF3CD] text-[#664D03]' :
@@ -46,7 +46,7 @@ export function ToastProvider({ children }) {
                 {t.type === 'warning' && 'warning'}
                 {t.type === 'info' && 'info'}
               </span>
-              <span className="font-label-bold text-xs uppercase tracking-wider">{t.message}</span>
+              <span className="font-label-bold text-xs">{t.message}</span>
             </div>
             <button
               onClick={() => removeToast(t.id)}
