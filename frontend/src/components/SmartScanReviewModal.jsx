@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { getFarmers, logDebit } from '../services/api';
+import { getFarmers, logDebit, createFarmer } from '../services/api';
 import { useToast } from '../context/ToastContext';
 
 export default function SmartScanReviewModal({ isOpen, onClose, scannedData, onSuccess, defaultFarmerId }) {
@@ -9,12 +9,23 @@ export default function SmartScanReviewModal({ isOpen, onClose, scannedData, onS
   const [scannedItems, setScannedItems] = useState([]);
   const { showToast } = useToast();
 
+  // Quick registration state
+  const [showQuickRegister, setShowQuickRegister] = useState(false);
+  const [quickName, setQuickName] = useState('');
+  const [quickVillage, setQuickVillage] = useState('');
+  const [quickPhone, setQuickPhone] = useState('');
+  const [isRegistering, setIsRegistering] = useState(false);
+
   useEffect(() => {
     if (isOpen) {
       loadFarmers();
       // Initialize items with the scanned data
       setScannedItems(scannedData || []);
       setSelectedFarmerId(defaultFarmerId || '');
+      setShowQuickRegister(false);
+      setQuickName('');
+      setQuickVillage('');
+      setQuickPhone('');
     }
   }, [isOpen, scannedData, defaultFarmerId]);
 
@@ -35,6 +46,35 @@ export default function SmartScanReviewModal({ isOpen, onClose, scannedData, onS
 
   const removeItem = (index) => {
     setScannedItems(scannedItems.filter((_, i) => i !== index));
+  };
+
+  const handleQuickRegister = async () => {
+    if (!quickName.trim() || !quickVillage.trim()) {
+      showToast('error', 'Name and Village are required.');
+      return;
+    }
+    setIsRegistering(true);
+    try {
+      const newFarmer = await createFarmer({
+        name: quickName.trim(),
+        village: quickVillage.trim(),
+        phone: quickPhone.trim()
+      });
+      showToast('success', 'Farmer registered successfully!');
+      
+      const updatedFarmers = await getFarmers();
+      setFarmers(updatedFarmers);
+      setSelectedFarmerId(newFarmer.id);
+      
+      setQuickName('');
+      setQuickVillage('');
+      setQuickPhone('');
+      setShowQuickRegister(false);
+    } catch (err) {
+      showToast('error', err.message || 'Failed to register farmer');
+    } finally {
+      setIsRegistering(false);
+    }
   };
 
   const handleSave = async () => {
@@ -103,24 +143,76 @@ export default function SmartScanReviewModal({ isOpen, onClose, scannedData, onS
         </div>
 
         <div className="p-4 overflow-y-auto flex-1">
-          <div className="mb-6">
-            <label className="block font-label-bold text-on-surface-variant mb-2">
-              Map to Farmer *
-            </label>
-            <select
-              className="w-full h-touch-target-min px-3 rounded border-2 border-outline bg-surface focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary appearance-none font-body-md"
-              value={selectedFarmerId}
-              onChange={(e) => setSelectedFarmerId(e.target.value)}
-              required
-            >
-              <option value="">-- Select Farmer --</option>
-              {farmers.map(f => (
-                <option key={f.id} value={f.id}>{f.name} ({f.village})</option>
-              ))}
-            </select>
-            <p className="text-label-sm text-on-surface-variant mt-1">
-              Select an existing farmer or close this modal and create a new one first.
-            </p>
+          <div className="mb-6 flex flex-col gap-2">
+            <div className="flex justify-between items-center">
+              <label className="block font-label-bold text-on-surface-variant">
+                Map to Farmer *
+              </label>
+              <button 
+                type="button" 
+                onClick={() => setShowQuickRegister(!showQuickRegister)} 
+                className="text-primary text-xs font-label-bold hover:underline"
+              >
+                {showQuickRegister ? 'Select Existing' : '+ Register New Farmer'}
+              </button>
+            </div>
+            
+            {showQuickRegister ? (
+              <div className="border border-outline p-4 bg-surface-container-low flex flex-col gap-3">
+                <div className="font-label-bold text-xs text-primary uppercase tracking-wider">Quick Register Farmer</div>
+                <div className="flex flex-col gap-2">
+                  <input 
+                    type="text" 
+                    placeholder="Full Name *" 
+                    value={quickName} 
+                    onChange={e => setQuickName(e.target.value)}
+                    className="h-[36px] px-3 border border-outline bg-surface text-sm outline-none w-full" 
+                  />
+                  <div className="grid grid-cols-2 gap-2">
+                    <input 
+                      type="text" 
+                      placeholder="Village *" 
+                      value={quickVillage} 
+                      onChange={e => setQuickVillage(e.target.value)}
+                      className="h-[36px] px-3 border border-outline bg-surface text-sm outline-none w-full" 
+                    />
+                    <input 
+                      type="text" 
+                      placeholder="Phone" 
+                      value={quickPhone} 
+                      onChange={e => setQuickPhone(e.target.value)}
+                      className="h-[36px] px-3 border border-outline bg-surface text-sm outline-none w-full" 
+                    />
+                  </div>
+                </div>
+                <button 
+                  type="button" 
+                  disabled={isRegistering || !quickName.trim() || !quickVillage.trim()}
+                  onClick={handleQuickRegister}
+                  className="w-full h-[36px] bg-primary text-on-primary font-label-bold text-xs hover:opacity-90 disabled:opacity-50 transition-opacity flex justify-center items-center gap-2"
+                >
+                  {isRegistering && <span className="material-symbols-outlined animate-spin text-sm">progress_activity</span>}
+                  Register & Map Farmer
+                </button>
+              </div>
+            ) : (
+              <>
+                <select
+                  className="w-full h-touch-target-min px-3 rounded border-2 border-outline bg-surface focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary appearance-none font-body-md"
+                  value={selectedFarmerId}
+                  onChange={(e) => setSelectedFarmerId(e.target.value)}
+                  required
+                >
+                  <option value="">-- Select Farmer --</option>
+                  {farmers.map(f => (
+                    <option key={f.id} value={f.id}>{f.name} ({f.village})</option>
+                  ))}
+                </select>
+                <p className="text-label-sm text-on-surface-variant mt-1">
+                  Select an existing farmer or use the quick register option.
+                </p>
+              </>
+            )}
           </div>
 
           <div>

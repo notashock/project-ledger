@@ -1,5 +1,4 @@
-import React, { useState, useEffect } from 'react';
-import { getFarmers, getAllGodowns, getMarketRates, logPurchase, logDebit, logBulkPurchase } from '../services/api';
+import { getFarmers, getAllGodowns, getMarketRates, logPurchase, logDebit, logBulkPurchase, createFarmer } from '../services/api';
 import { useToast } from '../context/ToastContext';
 
 export default function NewTradeModal({ isOpen, onClose }) {
@@ -23,6 +22,13 @@ export default function NewTradeModal({ isOpen, onClose }) {
   const [applyMachineCost, setApplyMachineCost] = useState(false);
   const [machineRate, setMachineRate] = useState('110');
   const [machineCost, setMachineCost] = useState('0.00');
+
+  // Quick registration state
+  const [showQuickRegister, setShowQuickRegister] = useState(false);
+  const [quickName, setQuickName] = useState('');
+  const [quickVillage, setQuickVillage] = useState('');
+  const [quickPhone, setQuickPhone] = useState('');
+  const [isRegistering, setIsRegistering] = useState(false);
 
   // Bulk Purchase fields
   const [supplierName, setSupplierName] = useState('');
@@ -98,6 +104,39 @@ export default function NewTradeModal({ isOpen, onClose }) {
     setDebitDescription('');
     setOtherCategorySpecify('');
     setTradeType('');
+    setShowQuickRegister(false);
+    setQuickName('');
+    setQuickVillage('');
+    setQuickPhone('');
+  };
+
+  const handleQuickRegister = async () => {
+    if (!quickName.trim() || !quickVillage.trim()) {
+      toast.error('Name and Village are required.');
+      return;
+    }
+    setIsRegistering(true);
+    try {
+      const newFarmer = await createFarmer({
+        name: quickName.trim(),
+        village: quickVillage.trim(),
+        phone: quickPhone.trim()
+      });
+      toast.success('Farmer registered successfully!');
+      
+      const updatedFarmers = await getFarmers();
+      setFarmers(updatedFarmers);
+      setFarmerId(newFarmer.id);
+      
+      setQuickName('');
+      setQuickVillage('');
+      setQuickPhone('');
+      setShowQuickRegister(false);
+    } catch (err) {
+      toast.error(err.message || 'Failed to register farmer');
+    } finally {
+      setIsRegistering(false);
+    }
   };
 
   const handleFormSubmit = async (e) => {
@@ -229,20 +268,69 @@ export default function NewTradeModal({ isOpen, onClose }) {
                 {/* Farmer Selection for Farmer-specific trades */}
                 {(tradeType === 'farmer_purchase' || tradeType === 'farmer_debit') && (
                   <div className="flex flex-col gap-2">
-                    <label className="font-label-bold text-label-bold text-on-surface">Select Farmer</label>
-                    {farmers.length === 0 ? (
-                      <div className="h-[48px] bg-error-container text-on-error-container flex items-center px-4 font-label-bold text-[14px]">
-                        No farmers registered yet.
+                    <div className="flex justify-between items-center">
+                      <label className="font-label-bold text-label-bold text-on-surface">Select Farmer</label>
+                      <button 
+                        type="button" 
+                        onClick={() => setShowQuickRegister(!showQuickRegister)} 
+                        className="text-primary text-xs font-label-bold hover:underline"
+                      >
+                        {showQuickRegister ? 'Select Existing' : '+ Register New'}
+                      </button>
+                    </div>
+                    {showQuickRegister ? (
+                      <div className="border-2 border-outline p-4 bg-surface-container-low flex flex-col gap-3">
+                        <div className="font-label-bold text-xs text-primary uppercase tracking-wider">Quick Register Farmer</div>
+                        <div className="flex flex-col gap-2">
+                          <input 
+                            type="text" 
+                            placeholder="Full Name *" 
+                            value={quickName} 
+                            onChange={e => setQuickName(e.target.value)}
+                            className="h-[36px] px-3 border border-outline bg-surface text-sm outline-none" 
+                          />
+                          <div className="grid grid-cols-2 gap-2">
+                            <input 
+                              type="text" 
+                              placeholder="Village *" 
+                              value={quickVillage} 
+                              onChange={e => setQuickVillage(e.target.value)}
+                              className="h-[36px] px-3 border border-outline bg-surface text-sm outline-none" 
+                            />
+                            <input 
+                              type="text" 
+                              placeholder="Phone" 
+                              value={quickPhone} 
+                              onChange={e => setQuickPhone(e.target.value)}
+                              className="h-[36px] px-3 border border-outline bg-surface text-sm outline-none" 
+                            />
+                          </div>
+                        </div>
+                        <button 
+                          type="button" 
+                          disabled={isRegistering || !quickName.trim() || !quickVillage.trim()}
+                          onClick={handleQuickRegister}
+                          className="h-[36px] bg-primary text-on-primary font-label-bold text-xs hover:opacity-90 disabled:opacity-50 transition-opacity flex justify-center items-center gap-2 border border-transparent"
+                        >
+                          {isRegistering && <span className="material-symbols-outlined animate-spin text-sm">progress_activity</span>}
+                          Register & Select
+                        </button>
                       </div>
                     ) : (
-                      <div className="relative">
-                        <select required value={farmerId} onChange={e => setFarmerId(e.target.value)} className="appearance-none w-full h-[48px] px-4 border border-outline focus:border-[#000000] focus:border-2 bg-surface outline-none transition-all rounded-none">
-                          {farmers.map(f => (
-                            <option key={f.id} value={f.id}>{f.name} ({f.village})</option>
-                          ))}
-                        </select>
-                        <span className="material-symbols-outlined absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-on-surface">arrow_drop_down</span>
-                      </div>
+                      farmers.length === 0 ? (
+                        <div className="h-[48px] bg-error-container text-on-error-container flex items-center px-4 font-label-bold text-[14px]">
+                          No farmers registered yet.
+                        </div>
+                      ) : (
+                        <div className="relative">
+                          <select required value={farmerId} onChange={e => setFarmerId(e.target.value)} className="appearance-none w-full h-[48px] px-4 border border-outline focus:border-[#000000] focus:border-2 bg-surface outline-none transition-all rounded-none">
+                            {farmers.map(f => (
+                              <option key={f.id} value={f.id}>{f.name} ({f.village})</option>
+                            ))}
+                          </select>
+                          <span className="material-symbols-outlined absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-on-surface">arrow_drop_down</span>
+                        </div>
+                      )
                     )}
                   </div>
                 )}
