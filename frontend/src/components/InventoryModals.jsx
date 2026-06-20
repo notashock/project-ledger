@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { getAllGodowns } from '../services/api';
+import { getAllGodowns, createGodown } from '../services/api';
 import { useToast } from '../context/ToastContext';
 
 export function BulkPurchaseModal({ isOpen, onClose, onSubmit, bulkPurchase = null }) {
@@ -11,6 +11,12 @@ export function BulkPurchaseModal({ isOpen, onClose, onSubmit, bulkPurchase = nu
   const [bagWeight, setBagWeight] = useState('101');
   const [godowns, setGodowns] = useState([]);
   const [godownId, setGodownId] = useState('');
+
+  // Quick godown registration state
+  const [showQuickRegisterGodown, setShowQuickRegisterGodown] = useState(false);
+  const [quickGodownName, setQuickGodownName] = useState('');
+  const [quickGodownLocation, setQuickGodownLocation] = useState('');
+  const [isRegisteringGodown, setIsRegisteringGodown] = useState(false);
 
   const noOfBags = weight && bagWeight ? (parseFloat(weight) / parseFloat(bagWeight)).toFixed(2) : '0.00';
   const estTotalAmount = weight && ratePerQuintal ? ((parseFloat(weight) / 100) * parseFloat(ratePerQuintal)).toFixed(2) : '0.00';
@@ -53,8 +59,38 @@ export function BulkPurchaseModal({ isOpen, onClose, onSubmit, bulkPurchase = nu
         setRatePerQuintal('');
         setBagWeight('101');
       }
+      setShowQuickRegisterGodown(false);
+      setQuickGodownName('');
+      setQuickGodownLocation('');
     }
   }, [isOpen, bulkPurchase]);
+
+  const handleQuickRegisterGodown = async () => {
+    if (!quickGodownName.trim() || !quickGodownLocation.trim()) {
+      toast.error('Godown Name and Location are required.');
+      return;
+    }
+    setIsRegisteringGodown(true);
+    try {
+      const newGodown = await createGodown({
+        name: quickGodownName.trim(),
+        location: quickGodownLocation.trim()
+      });
+      toast.success('Godown registered successfully!');
+      
+      const updatedGodowns = await getAllGodowns();
+      setGodowns(updatedGodowns);
+      setGodownId(newGodown.id);
+      
+      setQuickGodownName('');
+      setQuickGodownLocation('');
+      setShowQuickRegisterGodown(false);
+    } catch (err) {
+      toast.error(err.message || 'Failed to register godown');
+    } finally {
+      setIsRegisteringGodown(false);
+    }
+  };
 
   if (!isOpen) return null;
 
@@ -133,20 +169,60 @@ export function BulkPurchaseModal({ isOpen, onClose, onSubmit, bulkPurchase = nu
               </div>
             </div>
             <div className="flex flex-col gap-2 md:col-span-2">
-              <label className="font-label-bold text-label-bold text-on-surface">Unload Godown</label>
-              {godowns.length === 0 ? (
-                <div className="h-[48px] bg-error-container text-on-error-container flex items-center px-4 font-label-bold text-[14px]">
-                  Add a godown first.
+              <div className="flex justify-between items-center">
+                <label className="font-label-bold text-label-bold text-on-surface">Unload Godown</label>
+                <button 
+                  type="button" 
+                  onClick={() => setShowQuickRegisterGodown(!showQuickRegisterGodown)} 
+                  className="text-primary text-xs font-label-bold hover:underline"
+                >
+                  {showQuickRegisterGodown ? 'Select Existing' : '+ Register New'}
+                </button>
+              </div>
+              {showQuickRegisterGodown ? (
+                <div className="border border-outline p-4 bg-surface-container-low flex flex-col gap-3 rounded-none">
+                  <div className="font-label-bold text-xs text-primary uppercase tracking-wider">Quick Register Godown</div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                    <input 
+                      type="text" 
+                      placeholder="Godown Name *" 
+                      value={quickGodownName} 
+                      onChange={e => setQuickGodownName(e.target.value)}
+                      className="h-[36px] px-3 border border-outline bg-surface text-sm outline-none w-full" 
+                    />
+                    <input 
+                      type="text" 
+                      placeholder="Location *" 
+                      value={quickGodownLocation} 
+                      onChange={e => setQuickGodownLocation(e.target.value)}
+                      className="h-[36px] px-3 border border-outline bg-surface text-sm outline-none w-full" 
+                    />
+                  </div>
+                  <button 
+                    type="button" 
+                    disabled={isRegisteringGodown || !quickGodownName.trim() || !quickGodownLocation.trim()}
+                    onClick={handleQuickRegisterGodown}
+                    className="w-full h-[36px] bg-primary text-on-primary font-label-bold text-xs hover:opacity-90 disabled:opacity-50 transition-opacity flex justify-center items-center gap-2 border border-transparent rounded-none"
+                  >
+                    {isRegisteringGodown && <span className="material-symbols-outlined animate-spin text-sm">progress_activity</span>}
+                    Register & Select Godown
+                  </button>
                 </div>
               ) : (
-                <div className="relative">
-                  <select required value={godownId} onChange={e => setGodownId(e.target.value)} className="appearance-none w-full h-[48px] px-4 border border-outline focus:border-[#000000] focus:border-2 bg-surface outline-none transition-all rounded-none">
-                    {godowns.map(g => (
-                      <option key={g.id} value={g.id}>{g.name}</option>
-                    ))}
-                  </select>
-                  <span className="material-symbols-outlined absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-on-surface">arrow_drop_down</span>
-                </div>
+                godowns.length === 0 ? (
+                  <div className="h-[48px] bg-error-container text-on-error-container flex items-center px-4 font-label-bold text-[14px]">
+                    Add a godown first.
+                  </div>
+                ) : (
+                  <div className="relative">
+                    <select required value={godownId} onChange={e => setGodownId(e.target.value)} className="appearance-none w-full h-[48px] px-4 border border-outline focus:border-[#000000] focus:border-2 bg-surface outline-none transition-all rounded-none">
+                      {godowns.map(g => (
+                        <option key={g.id} value={g.id}>{g.name} ({g.location})</option>
+                      ))}
+                    </select>
+                    <span className="material-symbols-outlined absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-on-surface">arrow_drop_down</span>
+                  </div>
+                )
               )}
             </div>
           </div>
