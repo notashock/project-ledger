@@ -27,7 +27,10 @@ public class AdminController {
 
     @GetMapping("/users")
     public ResponseEntity<ApiResponseDto<List<AppUser>>> getAllUsers() {
-        List<AppUser> users = userRepository.findAll();
+        AppUser currentUser = authUtil.getCurrentUser();
+        List<AppUser> users = new java.util.ArrayList<>();
+        users.add(currentUser);
+        users.addAll(userRepository.findByAdmin(currentUser));
         ApiResponseDto<List<AppUser>> response = ApiResponseDto.success(
                 HttpStatus.OK.value(),
                 "Users retrieved successfully",
