@@ -17,8 +17,27 @@ public class AuthUtil {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         if (authentication != null && authentication.isAuthenticated() && !authentication.getPrincipal().equals("anonymousUser")) {
             String username = authentication.getName();
-            return userRepository.findByUsername(username)
+            AppUser user = userRepository.findByUsername(username)
                     .orElseThrow(() -> new RuntimeException("Current user not found"));
+            
+            // For data isolation: Standard users operate entirely within their admin's dataset
+            if (user.getRole() == com.trustledger.model.enums.UserRole.ROLE_USER) {
+                if (user.getAdmin() != null) {
+                    return user.getAdmin();
+                }
+                // Fallback: If no creator admin is set, return the default "admin" user or first available admin
+                AppUser defaultAdmin = userRepository.findByUsername("admin").orElse(null);
+                if (defaultAdmin == null) {
+                    defaultAdmin = userRepository.findAll().stream()
+                            .filter(u -> u.getRole() == com.trustledger.model.enums.UserRole.ROLE_ADMIN)
+                            .findFirst()
+                            .orElse(null);
+                }
+                if (defaultAdmin != null) {
+                    return defaultAdmin;
+                }
+            }
+            return user;
         }
         throw new RuntimeException("No authenticated user found");
     }

@@ -5,6 +5,7 @@ import ModalShell from './ModalShell';
 import QuickGodownRegisterForm from './QuickGodownRegisterForm';
 import CustomSelect from './CustomSelect';
 import CustomDatePicker from './CustomDatePicker';
+import { useAuth } from '../context/AuthContext';
 
 export function NewFarmerModal({ isOpen, onClose, onSubmit }) {
   const [name, setName] = useState('');
@@ -43,6 +44,8 @@ export function NewFarmerModal({ isOpen, onClose, onSubmit }) {
 }
 
 export function PurchaseModal({ isOpen, onClose, onSubmit, farmerName = "Current Farmer", purchase = null }) {
+  const { user } = useAuth();
+  const isAdmin = user?.role === 'ROLE_ADMIN';
   const toast = useToast();
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
   const [cropType, setCropType] = useState('rice');
@@ -229,13 +232,15 @@ export function PurchaseModal({ isOpen, onClose, onSubmit, farmerName = "Current
             <div className="flex flex-col gap-2 col-span-1 md:col-span-2">
               <div className="flex justify-between items-center">
                 <label className="font-label-bold text-on-surface" htmlFor="godown-select">Unload Godown</label>
-                <button 
-                  type="button" 
-                  onClick={() => setShowQuickRegisterGodown(!showQuickRegisterGodown)} 
-                  className="text-primary text-xs font-label-bold hover:underline"
-                >
-                  {showQuickRegisterGodown ? 'Select Existing' : '+ Register New'}
-                </button>
+                {isAdmin && (
+                  <button 
+                    type="button" 
+                    onClick={() => setShowQuickRegisterGodown(!showQuickRegisterGodown)} 
+                    className="text-primary text-xs font-label-bold hover:underline"
+                  >
+                    {showQuickRegisterGodown ? 'Select Existing' : '+ Register New'}
+                  </button>
+                )}
               </div>
               {showQuickRegisterGodown ? (
                 <QuickGodownRegisterForm 

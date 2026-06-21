@@ -3,6 +3,7 @@ import { useParams, Link, useNavigate } from 'react-router-dom';
 import { getFarmerHistory, logPurchase, logDebit, updateFarmer, deleteFarmer, deletePurchase, deleteDebit, updatePurchase, updateDebit, scanReceipt } from '../services/api';
 import { PurchaseModal, DebitModal } from './Modals';
 import { useToast } from '../context/ToastContext';
+import { useAuth } from '../context/AuthContext';
 import EditFarmerModal from './EditFarmerModal';
 import ConfirmDeleteModal from './ConfirmDeleteModal';
 import SmartScanReviewModal from './SmartScanReviewModal';
@@ -25,6 +26,8 @@ export default function FarmerKhata() {
   const [scannedData, setScannedData] = useState([]);
   const [isScanning, setIsScanning] = useState(false);
   const toast = useToast();
+  const { user } = useAuth();
+  const isAdmin = user?.role === 'ROLE_ADMIN';
 
   useEffect(() => {
     const handler = setTimeout(() => {
@@ -207,13 +210,15 @@ export default function FarmerKhata() {
                 <span className="material-symbols-outlined text-base">edit</span>
                 Edit Profile
               </button>
-              <button 
-                onClick={() => setDeleteProfileOpen(true)}
-                className="flex-1 md:flex-none h-touch-target-min px-4 bg-[#DC3545] text-white border-2 border-[#000000] font-label-bold hover:bg-[#B52A37] transition-colors flex items-center justify-center gap-2 cursor-pointer rounded"
-              >
-                <span className="material-symbols-outlined text-base">delete</span>
-                Delete Farmer
-              </button>
+              {isAdmin && (
+                <button 
+                  onClick={() => setDeleteProfileOpen(true)}
+                  className="flex-1 md:flex-none h-touch-target-min px-4 bg-[#DC3545] text-white border-2 border-[#000000] font-label-bold hover:bg-[#B52A37] transition-colors flex items-center justify-center gap-2 cursor-pointer rounded"
+                >
+                  <span className="material-symbols-outlined text-base">delete</span>
+                  Delete Farmer
+                </button>
+              )}
             </div>
           </div>
         </div>
@@ -300,17 +305,19 @@ export default function FarmerKhata() {
                   >
                     <span className="material-symbols-outlined text-[20px]">edit</span>
                   </button>
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setTxToDelete(tx);
-                    }}
-                    className="p-2 border border-outline hover:border-error hover:bg-[#F8D7DA] hover:text-[#842029] text-on-surface-variant rounded cursor-pointer transition-colors flex items-center justify-center bg-surface"
-                    title="Delete Transaction"
-                    aria-label="Delete Transaction"
-                  >
-                    <span className="material-symbols-outlined text-[20px]">delete</span>
-                  </button>
+                  {isAdmin && (
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setTxToDelete(tx);
+                      }}
+                      className="p-2 border border-outline hover:border-error hover:bg-[#F8D7DA] hover:text-[#842029] text-on-surface-variant rounded cursor-pointer transition-colors flex items-center justify-center bg-surface"
+                      title="Delete Transaction"
+                      aria-label="Delete Transaction"
+                    >
+                      <span className="material-symbols-outlined text-[20px]">delete</span>
+                    </button>
+                  )}
                 </div>
               </div>
             </div>

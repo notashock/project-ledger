@@ -5,8 +5,11 @@ import ModalShell from './ModalShell';
 import QuickGodownRegisterForm from './QuickGodownRegisterForm';
 import CustomSelect from './CustomSelect';
 import CustomDatePicker from './CustomDatePicker';
+import { useAuth } from '../context/AuthContext';
 
 export function BulkPurchaseModal({ isOpen, onClose, onSubmit, bulkPurchase = null }) {
+  const { user } = useAuth();
+  const isAdmin = user?.role === 'ROLE_ADMIN';
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
   const [supplierName, setSupplierName] = useState('');
   const [cropType, setCropType] = useState('RICE');
@@ -164,13 +167,15 @@ export function BulkPurchaseModal({ isOpen, onClose, onSubmit, bulkPurchase = nu
           <div className="flex flex-col gap-2 md:col-span-2">
             <div className="flex justify-between items-center">
               <label className="font-label-bold text-on-surface">Unload Godown</label>
-              <button 
-                type="button" 
-                onClick={() => setShowQuickRegisterGodown(!showQuickRegisterGodown)} 
-                className="text-primary text-xs font-label-bold hover:underline"
-              >
-                {showQuickRegisterGodown ? 'Select Existing' : '+ Register New'}
-              </button>
+              {isAdmin && (
+                <button 
+                  type="button" 
+                  onClick={() => setShowQuickRegisterGodown(!showQuickRegisterGodown)} 
+                  className="text-primary text-xs font-label-bold hover:underline"
+                >
+                  {showQuickRegisterGodown ? 'Select Existing' : '+ Register New'}
+                </button>
+              )}
             </div>
             {showQuickRegisterGodown ? (
               <QuickGodownRegisterForm 

@@ -43,6 +43,10 @@ export default function Layout({ children }) {
     { icon: 'assessment', label: 'Reports', path: '/reports' },
   ];
 
+  if (user && user.role === 'ROLE_ADMIN') {
+    sidebarNavItems.push({ icon: 'group', label: 'Users', path: '/users' });
+  }
+
   const bottomNavItems = [
     { icon: 'help', label: 'Support', path: '/support' },
   ];
@@ -60,6 +64,7 @@ export default function Layout({ children }) {
     if (path === '/market-rates') return 'Market Rates';
     if (path === '/inventory') return 'Inventory';
     if (path === '/reports') return 'Reports';
+    if (path === '/users') return 'User Management';
     if (path === '/support') return 'Support';
     return 'TrustLedger';
   };

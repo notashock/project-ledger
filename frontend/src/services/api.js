@@ -62,6 +62,10 @@ export const loginUser = (username, password) => {
   return api.post('/auth/login', { username, password }).then((res) => res.data);
 };
 
+export const registerUser = (username, password) => {
+  return api.post('/auth/register', { username, password }).then((res) => res.data);
+};
+
 export const scanReceipt = (formData) => api.post('/ai/scan-debit', formData, {
     headers: {
         'Content-Type': 'multipart/form-data'
@@ -106,5 +110,9 @@ export const deleteDebit = (id) => api.delete(`/transactions/debit/${id}`).then(
 export const updatePurchase = (id, data) => api.put(`/transactions/purchase/${id}`, data).then((res) => res.data);
 export const updateDebit = (id, data) => api.put(`/transactions/debit/${id}`, data).then((res) => res.data);
 export const updateBulkPurchase = (id, data) => api.put(`/inventory/bulk-purchases/${id}`, data).then((res) => res.data);
+
+export const getUsers = () => api.get('/admin/users').then((res) => res.data);
+export const createUser = (data) => api.post('/admin/users', data).then((res) => res.data);
+export const deleteUser = (id) => api.delete(`/admin/users/${id}`).then((res) => res.data);
 
 export default api;

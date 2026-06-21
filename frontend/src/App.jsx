@@ -8,7 +8,8 @@ import MarketRates from './pages/MarketRates';
 import Inventory from './pages/Inventory';
 import Reports from './pages/Reports';
 import Login from './pages/Login';
-import { AuthProvider, ProtectedRoute } from './context/AuthContext';
+import UserManagement from './pages/UserManagement';
+import { AuthProvider, ProtectedRoute, AdminRoute } from './context/AuthContext';
 import { ToastProvider } from './context/ToastContext';
 
 function App() {
@@ -30,6 +31,7 @@ function App() {
                       <Route path="/market-rates" element={<MarketRates />} />
                       <Route path="/inventory" element={<Inventory />} />
                       <Route path="/reports" element={<Reports />} />
+                      <Route path="/users" element={<AdminRoute><UserManagement /></AdminRoute>} />
                       <Route path="*" element={<Navigate to="/" replace />} />
                     </Routes>
                   </Layout>

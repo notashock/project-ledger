@@ -6,8 +6,11 @@ import QuickFarmerRegisterForm from './QuickFarmerRegisterForm';
 import QuickGodownRegisterForm from './QuickGodownRegisterForm';
 import CustomSelect from './CustomSelect';
 import CustomDatePicker from './CustomDatePicker';
+import { useAuth } from '../context/AuthContext';
 
 export default function NewTradeModal({ isOpen, onClose }) {
+  const { user } = useAuth();
+  const isAdmin = user?.role === 'ROLE_ADMIN';
   const [tradeType, setTradeType] = useState(''); // 'farmer_purchase', 'bulk_purchase', 'farmer_debit'
   const [farmers, setFarmers] = useState([]);
   const [godowns, setGodowns] = useState([]);
@@ -285,13 +288,15 @@ export default function NewTradeModal({ isOpen, onClose }) {
               <div className="flex flex-col gap-2 col-span-1 md:col-span-2">
                 <div className="flex justify-between items-center">
                   <label className="font-label-bold text-label-bold text-on-surface">Unload Godown</label>
-                  <button 
-                    type="button" 
-                    onClick={() => setShowQuickRegisterGodown(!showQuickRegisterGodown)} 
-                    className="text-primary text-xs font-label-bold hover:underline"
-                  >
-                    {showQuickRegisterGodown ? 'Select Existing' : '+ Register New'}
-                  </button>
+                  {isAdmin && (
+                    <button 
+                      type="button" 
+                      onClick={() => setShowQuickRegisterGodown(!showQuickRegisterGodown)} 
+                      className="text-primary text-xs font-label-bold hover:underline"
+                    >
+                      {showQuickRegisterGodown ? 'Select Existing' : '+ Register New'}
+                    </button>
+                  )}
                 </div>
                 {showQuickRegisterGodown ? (
                   <QuickGodownRegisterForm 

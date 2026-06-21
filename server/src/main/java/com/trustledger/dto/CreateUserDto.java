@@ -7,9 +7,8 @@ import lombok.NoArgsConstructor;
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
-public class AuthResponse {
-    private String token;
+public class CreateUserDto {
     private String username;
-    private String role;
+    private String password;
+    private String role; // "ROLE_USER" or "ROLE_ADMIN"
 }
-

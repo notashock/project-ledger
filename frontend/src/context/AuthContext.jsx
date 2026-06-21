@@ -14,9 +14,11 @@ export function AuthProvider({ children }) {
   useEffect(() => {
     const storedToken = localStorage.getItem('token');
     const storedUsername = localStorage.getItem('username');
+    const storedRole = localStorage.getItem('role');
     if (storedToken && storedUsername) {
       setToken(storedToken);
-      setUser({ username: storedUsername });
+      const defaultRole = storedUsername === 'admin' ? 'ROLE_ADMIN' : 'ROLE_USER';
+      setUser({ username: storedUsername, role: storedRole || defaultRole });
     }
     setLoading(false);
 
@@ -28,12 +30,13 @@ export function AuthProvider({ children }) {
 
   const login = async (username, password) => {
     const data = await loginUser(username, password);
-    // data contains { token, username }
+    // data contains { token, username, role }
     if (data && data.token) {
       localStorage.setItem('token', data.token);
       localStorage.setItem('username', data.username);
+      localStorage.setItem('role', data.role || 'ROLE_USER');
       setToken(data.token);
-      setUser({ username: data.username });
+      setUser({ username: data.username, role: data.role || 'ROLE_USER' });
       navigate('/', { replace: true });
       return true;
     }
@@ -43,6 +46,7 @@ export function AuthProvider({ children }) {
   const logout = () => {
     localStorage.removeItem('token');
     localStorage.removeItem('username');
+    localStorage.removeItem('role');
     setToken(null);
     setUser(null);
     navigate('/login', { replace: true });
@@ -80,3 +84,22 @@ export function ProtectedRoute({ children }) {
 
   return children;
 }
+
+export function AdminRoute({ children }) {
+  const { user, loading } = useAuth();
+
+  if (loading) {
+    return (
+      <div className="bg-surface text-on-surface min-h-screen flex items-center justify-center font-body-lg">
+        <LoadingSpinner message="Authenticating..." />
+      </div>
+    );
+  }
+
+  if (!user || user.role !== 'ROLE_ADMIN') {
+    return <Navigate to="/" replace />;
+  }
+
+  return children;
+}
+

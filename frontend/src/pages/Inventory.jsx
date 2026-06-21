@@ -3,6 +3,7 @@ import { BulkPurchaseModal, GodownModal } from '../components/InventoryModals';
 import GodownDetailsModal from '../components/GodownDetailsModal';
 import { getInventorySummary, getInventoryTrace, logBulkPurchase, createGodown, getAllGodowns, updateGodown, deleteGodown } from '../services/api';
 import { useToast } from '../context/ToastContext';
+import { useAuth } from '../context/AuthContext';
 import EditGodownModal from '../components/EditGodownModal';
 import ConfirmDeleteModal from '../components/ConfirmDeleteModal';
 import LoadingSpinner from '../components/LoadingSpinner';
@@ -20,6 +21,8 @@ export default function Inventory() {
   const [godownToEdit, setGodownToEdit] = useState(null);
   const [godownToDelete, setGodownToDelete] = useState(null);
   const toast = useToast();
+  const { user } = useAuth();
+  const isAdmin = user?.role === 'ROLE_ADMIN';
 
   const fetchData = async () => {
     setIsLoading(true);
@@ -126,12 +129,14 @@ export default function Inventory() {
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6 border-b border-outline-variant pb-2">
               <h3 className="font-headline-lg text-headline-lg text-on-surface">Stock by Godown</h3>
               <div className="flex gap-3 w-full md:w-auto">
-                <button 
-                  onClick={() => setIsGodownModalOpen(true)}
-                  className="flex-1 md:flex-none h-[40px] px-4 border-2 border-[#000000] text-[#000000] font-label-bold text-sm rounded hover:bg-surface-variant transition-colors flex items-center justify-center gap-2 cursor-pointer"
-                >
-                  <span className="material-symbols-outlined text-[20px]">warehouse</span> Add Godown
-                </button>
+                {isAdmin && (
+                  <button 
+                    onClick={() => setIsGodownModalOpen(true)}
+                    className="flex-1 md:flex-none h-[40px] px-4 border-2 border-[#000000] text-[#000000] font-label-bold text-sm rounded hover:bg-surface-variant transition-colors flex items-center justify-center gap-2 cursor-pointer"
+                  >
+                    <span className="material-symbols-outlined text-[20px]">warehouse</span> Add Godown
+                  </button>
+                )}
                 <button 
                   onClick={() => setIsBulkModalOpen(true)}
                   className="flex-1 md:flex-none h-[40px] px-4 bg-primary-container text-on-primary font-label-bold text-sm rounded hover:opacity-90 transition-opacity flex items-center justify-center gap-2 cursor-pointer border-2 border-black"
@@ -166,28 +171,32 @@ export default function Inventory() {
                         <h4 className="font-headline-md text-headline-md text-on-surface font-bold">{godown.name}</h4>
                       </div>
                       <div className="flex items-center gap-1">
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setGodownToEdit(godown);
-                          }}
-                          className="p-1.5 border border-outline hover:border-black hover:bg-surface-variant text-on-surface rounded cursor-pointer transition-colors flex items-center justify-center bg-surface"
-                          title="Edit Godown"
-                          aria-label="Edit Godown"
-                        >
-                          <span className="material-symbols-outlined text-[18px]">edit</span>
-                        </button>
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setGodownToDelete(godown);
-                          }}
-                          className="p-1.5 border border-outline hover:border-error hover:bg-[#F8D7DA] hover:text-[#842029] text-on-surface rounded cursor-pointer transition-colors flex items-center justify-center bg-surface"
-                          title="Delete Godown"
-                          aria-label="Delete Godown"
-                        >
-                          <span className="material-symbols-outlined text-[18px]">delete</span>
-                        </button>
+                        {isAdmin && (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setGodownToEdit(godown);
+                            }}
+                            className="p-1.5 border border-outline hover:border-black hover:bg-surface-variant text-on-surface rounded cursor-pointer transition-colors flex items-center justify-center bg-surface"
+                            title="Edit Godown"
+                            aria-label="Edit Godown"
+                          >
+                            <span className="material-symbols-outlined text-[18px]">edit</span>
+                          </button>
+                        )}
+                        {isAdmin && (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setGodownToDelete(godown);
+                            }}
+                            className="p-1.5 border border-outline hover:border-error hover:bg-[#F8D7DA] hover:text-[#842029] text-on-surface rounded cursor-pointer transition-colors flex items-center justify-center bg-surface"
+                            title="Delete Godown"
+                            aria-label="Delete Godown"
+                          >
+                            <span className="material-symbols-outlined text-[18px]">delete</span>
+                          </button>
+                        )}
                       </div>
                     </div>
                     <div className="p-6 flex flex-col gap-6">

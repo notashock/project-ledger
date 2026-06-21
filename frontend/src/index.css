@@ -203,5 +203,16 @@
   scrollbar-color: var(--color-primary-container, #1b5e20) var(--color-surface, #f7fbf1);
 }
 
+/* Remove up and down arrows in number input fields */
+input[type="number"]::-webkit-inner-spin-button,
+input[type="number"]::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+input[type="number"] {
+  -moz-appearance: textfield;
+  appearance: textfield;
+}
+
 
 

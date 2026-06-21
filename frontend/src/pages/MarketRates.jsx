@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { getMarketRates, updateMarketRates, getRatesHistory } from '../services/api';
 import { useToast } from '../context/ToastContext';
+import { useAuth } from '../context/AuthContext';
 
 export default function MarketRates() {
   const [rates, setRates] = useState({
@@ -13,6 +14,8 @@ export default function MarketRates() {
   const [selectedCrop, setSelectedCrop] = useState('rice');
   const [hoveredIndex, setHoveredIndex] = useState(null);
   const toast = useToast();
+  const { user } = useAuth();
+  const isAdmin = user?.role === 'ROLE_ADMIN';
 
   useEffect(() => {
     getMarketRates().then((data) => {
@@ -235,19 +238,21 @@ export default function MarketRates() {
                 <div className="flex flex-col gap-1">
                   <label className="text-xs font-semibold text-on-surface-variant">Rate / Bag (₹)</label>
                   <input 
-                    className="h-10 px-3 bg-transparent border border-outline text-on-surface text-sm focus:border-[#000000] focus:border-2 focus:ring-0 outline-none transition-all rounded" 
+                    className="h-10 px-3 bg-transparent border border-outline text-on-surface text-sm focus:border-[#000000] focus:border-2 focus:ring-0 outline-none transition-all rounded disabled:opacity-50" 
                     type="number" 
                     value={rates.rice.buyRate}
                     onChange={(e) => handleRateChange('rice', 'buyRate', e.target.value)}
+                    disabled={!isAdmin}
                   />
                 </div>
                 <div className="flex flex-col gap-1">
                   <label className="text-xs font-semibold text-on-surface-variant">Bag Weight (Kg)</label>
                   <input 
-                    className="h-10 px-3 bg-transparent border border-outline text-on-surface text-sm focus:border-[#000000] focus:border-2 focus:ring-0 outline-none transition-all rounded" 
+                    className="h-10 px-3 bg-transparent border border-outline text-on-surface text-sm focus:border-[#000000] focus:border-2 focus:ring-0 outline-none transition-all rounded disabled:opacity-50" 
                     type="number" 
                     value={rates.rice.bagWeight}
                     onChange={(e) => handleRateChange('rice', 'bagWeight', e.target.value)}
+                    disabled={!isAdmin}
                   />
                 </div>
               </div>
@@ -259,37 +264,41 @@ export default function MarketRates() {
                 <div className="flex flex-col gap-1">
                   <label className="text-xs font-semibold text-on-surface-variant">Rate / Bag (₹)</label>
                   <input 
-                    className="h-10 px-3 bg-transparent border border-outline text-on-surface text-sm focus:border-[#000000] focus:border-2 focus:ring-0 outline-none transition-all rounded" 
+                    className="h-10 px-3 bg-transparent border border-outline text-on-surface text-sm focus:border-[#000000] focus:border-2 focus:ring-0 outline-none transition-all rounded disabled:opacity-50" 
                     type="number" 
                     value={rates.maize.buyRate}
                     onChange={(e) => handleRateChange('maize', 'buyRate', e.target.value)}
+                    disabled={!isAdmin}
                   />
                 </div>
                 <div className="flex flex-col gap-1">
                   <label className="text-xs font-semibold text-on-surface-variant">Bag Weight (Kg)</label>
                   <input 
-                    className="h-10 px-3 bg-transparent border border-outline text-on-surface text-sm focus:border-[#000000] focus:border-2 focus:ring-0 outline-none transition-all rounded" 
+                    className="h-10 px-3 bg-transparent border border-outline text-on-surface text-sm focus:border-[#000000] focus:border-2 focus:ring-0 outline-none transition-all rounded disabled:opacity-50" 
                     type="number" 
                     value={rates.maize.bagWeight}
                     onChange={(e) => handleRateChange('maize', 'bagWeight', e.target.value)}
+                    disabled={!isAdmin}
                   />
                 </div>
               </div>
             </div>
           </div>
-          <div className="pt-6 border-t-2 border-[#000000] flex gap-4">
-            <button 
-              className="flex-1 h-touch-target-min bg-primary-container text-on-primary font-label-bold text-label-bold hover:opacity-90 transition-opacity disabled:opacity-50 rounded" 
-              type="button"
-              onClick={handlePublish}
-              disabled={isPublishing}
-            >
-              {isPublishing ? 'Publishing...' : 'Publish Rates'}
-            </button>
-            <button className="flex-1 h-touch-target-min bg-transparent border-2 border-[#000000] text-on-surface font-label-bold text-label-bold hover:bg-surface-container-high transition-colors rounded" type="button">
-              Discard
-            </button>
-          </div>
+          {isAdmin && (
+            <div className="pt-6 border-t-2 border-[#000000] flex gap-4">
+              <button 
+                className="flex-1 h-touch-target-min bg-primary-container text-on-primary font-label-bold text-label-bold hover:opacity-90 transition-opacity disabled:opacity-50 rounded" 
+                type="button"
+                onClick={handlePublish}
+                disabled={isPublishing}
+              >
+                {isPublishing ? 'Publishing...' : 'Publish Rates'}
+              </button>
+              <button className="flex-1 h-touch-target-min bg-transparent border-2 border-[#000000] text-on-surface font-label-bold text-label-bold hover:bg-surface-container-high transition-colors rounded" type="button">
+                Discard
+              </button>
+            </div>
+          )}
         </form>
       </section>
 
